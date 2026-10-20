@@ -107,6 +107,8 @@
   .pm{border:1px solid var(--border);border-radius:14px;padding:18px 22px;background:rgba(255,255,255,.03);margin-bottom:12px;transition:border-color .18s,background .18s}
   .pm.on{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.06)}
   .hide-sm{}
+  .lbl.show-sm{display:none}
+  @media(max-width:600px){.lbl.show-sm{display:block}}
   @media(max-width:600px){.hide-sm{display:none!important}}
   .tbl-scroll{overflow-x:auto}.tbl-scroll>div{min-width:720px}
   /* Divider */
@@ -123,13 +125,14 @@ const SB_URL    = "https://mhktyejanikvdnjbndgi.supabase.co";
 const SB_ANON   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oa3R5ZWphbmlrdmRuamJuZGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjAyNzcsImV4cCI6MjA5NTM5NjI3N30.OtahkiwKHx-tth18cFZHHKMLGG1ZKjxZT2M5baf0sUs";
 const BRAND     = "YourWeddingsDJ.com";
 const PORTAL    = "https://yourweddingsdj.com";
-const INVITE_CODE = "YOURWEDDING2025"; // ← share this with clients; change it anytime
 // Admin = any Supabase account you set is_admin=true on
 // ════════════════════════════════════════════════
 
 const {createClient} = supabase;
 const CONFIGURED = SB_URL !== "YOUR_SUPABASE_URL" && SB_ANON !== "YOUR_SUPABASE_ANON_KEY";
 const DB = CONFIGURED ? createClient(SB_URL, SB_ANON) : null;
+// Separate, non-persisting client for creating client accounts — signUp on DB would replace the admin's session
+const SIGNUP_DB = CONFIGURED ? createClient(SB_URL, SB_ANON, {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:"sb-signup-tmp"}}) : null;
 const {useState, useEffect, useCallback} = React;
 
 // ── Constants ──────────────────────────────────
@@ -174,6 +177,7 @@ const f12 = t => {
   catch{ return t; }
 };
 const fDate  = d => { if(!d) return "TBD"; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}); }catch{return d;} };
+const money  = n => "$"+(parseFloat(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fShort = d => { if(!d) return ""; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }catch{return d;} };
 
 const blankEv = () => ({
@@ -605,9 +609,9 @@ function Step4({d,u}){
     <StepHeader title="Event Timeline" sub="Walk us through the flow of your event. Times can be approximate."/>
     {d.timeline.map((item,i)=>(
       <div key={i} className="tl">
-        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Time</label>}<input type="time" value={item.time} onChange={e=>set(i,"time",e.target.value)} style={{padding:"8px 9px",fontSize:"13px"}}/></div>
-        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Milestone</label>}<input value={item.label} onChange={e=>set(i,"label",e.target.value)} placeholder="What's happening?" style={{fontSize:"13px"}}/></div>
-        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Notes</label>}<input value={item.note} onChange={e=>set(i,"note",e.target.value)} placeholder="Details…" style={{fontSize:"13px"}}/></div>
+        <div className="fg"><label className={`lbl${i>0?" show-sm":""}`} style={{fontSize:"9px"}}>Time</label><input type="time" value={item.time} onChange={e=>set(i,"time",e.target.value)} style={{padding:"8px 9px",fontSize:"13px"}}/></div>
+        <div className="fg"><label className={`lbl${i>0?" show-sm":""}`} style={{fontSize:"9px"}}>Milestone</label><input value={item.label} onChange={e=>set(i,"label",e.target.value)} placeholder="What's happening?" style={{fontSize:"13px"}}/></div>
+        <div className="fg"><label className={`lbl${i>0?" show-sm":""}`} style={{fontSize:"9px"}}>Notes</label><input value={item.note} onChange={e=>set(i,"note",e.target.value)} placeholder="Details…" style={{fontSize:"13px"}}/></div>
         <button className="btn b-ghost" onClick={()=>u({timeline:d.timeline.filter((_,j)=>j!==i)})} style={{padding:"7px",fontSize:"17px",color:"var(--red)",lineHeight:1,alignSelf:"flex-end"}}>×</button>
       </div>
     ))}
@@ -698,12 +702,13 @@ function Step7({d}){
     {d.timeline.length>0&&<Sec title="Timeline">{d.timeline.map((item,i)=><Row key={i} l={item.time?f12(item.time):"—"} v={item.label+(item.note?` · ${item.note}`:"")}/>)}</Sec>}
     <Sec title="Special Songs">
       <Song l="Grand Entrance" s={d.grandEntranceSong} a={d.grandEntranceArtist}/>
-      {d.eventType==="wedding"&&<><Song l="First Dance" s={d.firstDanceSong} a={d.firstDanceArtist}/><Song l="Father/Daughter" s={d.fatherDaughterSong} a={d.fatherDaughterArtist}/><Song l="Mother/Son" s={d.motherSonSong} a={d.motherSonArtist}/><Song l="Bridal Party" s={d.partyEntranceSong} a={d.partyEntranceArtist}/><Song l="Cake Cutting" s={d.cakeCuttingSong} a={d.cakeCuttingArtist}/></>}
+      {d.eventType==="wedding"&&<><Song l="First Dance" s={d.firstDanceSong} a={d.firstDanceArtist}/><Song l="Father/Daughter" s={d.fatherDaughterSong} a={d.fatherDaughterArtist}/><Song l="Mother/Son" s={d.motherSonSong} a={d.motherSonArtist}/><Song l="Bridal Party" s={d.partyEntranceSong} a={d.partyEntranceArtist}/><Song l="Cake Cutting" s={d.cakeCuttingSong} a={d.cakeCuttingArtist}/><Song l="Bouquet Toss" s={d.bouquetSong} a={d.bouquetArtist}/><Song l="Garter" s={d.garterSong} a={d.garterArtist}/></>}
       {(d.eventType==="bar_mitzvah"||d.eventType==="bat_mitzvah")&&<Song l="Hora" s={d.horaSong} a={d.horaArtist}/>}
       <Song l="Opening Song" s={d.openingSong} a={d.openingArtist}/>
       <Song l="Last Dance"   s={d.lastDanceSong} a={d.lastDanceArtist}/>
     </Sec>
     {d.mustPlay.some(s=>s.song)&&<Sec title="Must-Play">{d.mustPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{fontSize:"13px",marginBottom:"6px",color:"var(--ink)"}}><span style={{color:"var(--gold)"}}>♪ </span>{s.song}{s.artist&&<span style={{color:"var(--muted)"}}> — {s.artist}</span>}</div>)}</Sec>}
+    {d.doNotPlay.some(s=>s.song)&&<Sec title="Do Not Play">{d.doNotPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{fontSize:"13px",marginBottom:"6px",color:"var(--ink)"}}><span style={{color:"var(--red)"}}>✕ </span>{s.song}{s.artist&&<span style={{color:"var(--muted)"}}> — {s.artist}</span>}</div>)}</Sec>}
     {d.vibes.length>0&&<Sec title="Vibes"><div style={{display:"flex",flexWrap:"wrap",gap:"7px"}}>{d.vibes.map(v=><span key={v} style={{padding:"4px 11px",borderRadius:"20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",color:"var(--gold)",fontSize:"12px",fontWeight:600}}>{v}</span>)}</div></Sec>}
     {d.specialRequests&&<Sec title="Special Requests"><p style={{fontSize:"13px",color:"var(--ink)",lineHeight:1.75}}>{d.specialRequests}</p></Sec>}
     <OkBox msg="Review the details above, then click Submit. We'll follow up to confirm everything."/>
@@ -714,7 +719,15 @@ function EventForm({event,userId,onSave,onCancel}){
   const[data,setData]=useState(()=>event?{...blankEv(),...event}:blankEv());
   const[saving,setSaving]=useState(false);
   const u=useCallback(c=>setData(p=>({...p,...c})),[]);
-  const save=async draft=>{setSaving(true);await onSave({...data,status:draft?"draft":"submitted",id:data.id||uid(),userId});setSaving(false);};
+  const[err,setErr]=useState("");
+  const REQ=[[1,"Event type","eventType"],[1,"Event name","eventName"],[1,"Date","eventDate"],[2,"Full name","clientName"],[2,"Phone","phone"],[2,"Email","email"],[3,"Venue name","venueName"]];
+  const save=async draft=>{
+    if(!draft){
+      const missing=REQ.filter(([,,k])=>!String(data[k]||"").trim());
+      if(missing.length){setErr(`Please fill in: ${missing.map(m=>m[1]).join(", ")}`);setStep(missing[0][0]);return;}
+    }
+    setErr("");setSaving(true);await onSave({...data,status:draft?"draft":"submitted",id:data.id||uid(),userId});setSaving(false);
+  };
   const steps=[<Step1 d={data} u={u}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
   return(
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
@@ -742,6 +755,7 @@ function EventForm({event,userId,onSave,onCancel}){
       <div style={{height:"3px",background:"var(--border)"}}><div style={{height:"100%",background:"var(--gold)",width:`${(step/7)*100}%`,transition:"width .3s ease"}}/></div>
       {/* Content */}
       <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
+        <ErrBox msg={err}/>
         <div className="card" style={{boxShadow:"0 1px 8px rgba(0,0,0,.07)"}}>{steps[step-1]}</div>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"18px"}}>
           <button className="btn b-out" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?"hidden":"visible"}}>← Back</button>
@@ -775,7 +789,7 @@ function EventView({event,paySettings,payRequests,onEdit,onBack}){
           <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"16px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"18px",fontWeight:400,color:"var(--ink)"}}>Payment Due</h3></div>
           {pending.map(req=>{const note=encodeURIComponent(req.label||"DJ Services");return(
             <div key={req.id} style={{padding:"14px 16px",background:"var(--white)",border:"1.5px solid var(--pbdr)",borderRadius:"10px",marginBottom:"10px"}}>
-              <div style={{marginBottom:"12px"}}><div style={{fontSize:"18px",fontWeight:700,color:"var(--purple)"}}>${parseFloat(req.amount||0).toFixed(2)} — {req.label}</div>{req.dueDate&&<div style={{fontSize:"12px",color:"var(--muted)"}}>Due by {fShort(req.dueDate)}</div>}</div>
+              <div style={{marginBottom:"12px"}}><div style={{fontSize:"18px",fontWeight:700,color:"var(--purple)"}}>{money(req.amount)} — {req.label}</div>{req.dueDate&&<div style={{fontSize:"12px",color:"var(--muted)"}}>Due by {fShort(req.dueDate)}</div>}</div>
               <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
                 {ps.methods?.venmo&&ps.venmo&&<a href={`https://venmo.com/${ps.venmo.replace("@","")}?txn=pay&amount=${req.amount}&note=${note}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"var(--bbg)",border:"1.5px solid var(--bbdr)",borderRadius:"var(--r)",textDecoration:"none",color:"var(--blue)",fontWeight:600,fontSize:"13px"}}>Pay with Venmo — @{ps.venmo.replace("@","")}</a>}
                 {ps.methods?.cashapp&&ps.cashApp&&<a href={`https://cash.app/${ps.cashApp.startsWith("$")?ps.cashApp:"$"+ps.cashApp}/${req.amount}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"var(--gbg2)",border:"1.5px solid var(--gbdr2)",borderRadius:"var(--r)",textDecoration:"none",color:"var(--green)",fontWeight:600,fontSize:"13px"}}>Pay with Cash App — {ps.cashApp.startsWith("$")?ps.cashApp:"$"+ps.cashApp}</a>}
@@ -1103,7 +1117,7 @@ function AdminEventView({event,profiles,paySettings,payRequests,onSave,onAddPayR
         <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
           {myReqs.map(r=>(
             <div key={r.id} style={{padding:"12px 16px",background:r.status==="paid"?"var(--gbg2)":"var(--pbg)",border:`1.5px solid ${r.status==="paid"?"var(--gbdr2)":"var(--pbdr)"}`,borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px"}}>
-              <div><div style={{fontSize:"15px",fontWeight:600,color:r.status==="paid"?"var(--green)":"var(--purple)"}}>${parseFloat(r.amount||0).toFixed(2)} — {r.label}</div>{r.dueDate&&<div style={{fontSize:"11px",color:"var(--muted)"}}>Due: {fShort(r.dueDate)}</div>}</div>
+              <div><div style={{fontSize:"15px",fontWeight:600,color:r.status==="paid"?"var(--green)":"var(--purple)"}}>{money(r.amount)} — {r.label}</div>{r.dueDate&&<div style={{fontSize:"11px",color:"var(--muted)"}}>Due: {fShort(r.dueDate)}</div>}</div>
               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                 {r.status!=="paid"&&<button className="btn b-green" onClick={()=>onUpdatePayReq({...r,status:"paid"})} style={{padding:"5px 12px",fontSize:"11px"}}>✓ Mark Paid</button>}
                 {r.status==="paid"&&<span style={{fontSize:"11px",color:"var(--green)",fontWeight:700}}>✓ PAID</span>}
@@ -1151,7 +1165,7 @@ function getBrand(eventType){
     name:"YourWeddingsDJ.com",
     address:"Waterford, MI 48328",
     phone:"(248) 390-4576",
-    email:"directmixentertainment@gmail.com",
+    email:"bryon@yourweddingsdj.com",
     website:"www.yourweddingsdj.com",
   };
   return {
@@ -1276,22 +1290,22 @@ function InvoiceView({event,payRequests,onClose}){
                   <td style={{padding:"13px 16px",textAlign:"center"}}>
                     <span style={{padding:"2px 10px",borderRadius:"20px",fontSize:"11px",fontWeight:700,textTransform:"uppercase",background:r.status==="paid"?"#eaf7f0":"#fcecea",color:r.status==="paid"?"#157a42":"#b52b2b",border:`1px solid ${r.status==="paid"?"#9ed9be":"#f0b0a8"}`}}>{r.status}</span>
                   </td>
-                  <td style={{padding:"13px 16px",fontSize:"14px",fontWeight:600,color:"#1a1d2e",textAlign:"right"}}>${parseFloat(r.amount||0).toFixed(2)}</td>
+                  <td style={{padding:"13px 16px",fontSize:"14px",fontWeight:600,color:"#1a1d2e",textAlign:"right"}}>{money(r.amount)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr style={{borderTop:"2px solid #dde1eb"}}>
                 <td colSpan={3} style={{padding:"12px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Total</td>
-                <td style={{padding:"12px 16px",textAlign:"right",fontSize:"15px",fontWeight:700,color:"#1a1d2e"}}>${total.toFixed(2)}</td>
+                <td style={{padding:"12px 16px",textAlign:"right",fontSize:"15px",fontWeight:700,color:"#1a1d2e"}}>{money(total)}</td>
               </tr>
               <tr>
                 <td colSpan={3} style={{padding:"6px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Paid</td>
-                <td style={{padding:"6px 16px",textAlign:"right",fontSize:"14px",fontWeight:600,color:"#157a42"}}>-${paid.toFixed(2)}</td>
+                <td style={{padding:"6px 16px",textAlign:"right",fontSize:"14px",fontWeight:600,color:"#157a42"}}>-{money(paid)}</td>
               </tr>
               <tr style={{background:"#111111",borderRadius:"8px"}}>
                 <td colSpan={3} style={{padding:"14px 16px",textAlign:"right",fontSize:"14px",fontWeight:700,color:"#fff",borderRadius:"6px 0 0 6px"}}>Balance Due</td>
-                <td style={{padding:"14px 16px",textAlign:"right",fontSize:"18px",fontWeight:700,color:"#ffffff",borderRadius:"0 6px 6px 0"}}>${balance.toFixed(2)}</td>
+                <td style={{padding:"14px 16px",textAlign:"right",fontSize:"18px",fontWeight:700,color:"#ffffff",borderRadius:"0 6px 6px 0"}}>{money(balance)}</td>
               </tr>
             </tfoot>
           </table>
@@ -1351,7 +1365,7 @@ function ContractView({event,payRequests,onClose}){
 
           <p style={{marginBottom:"20px"}}>To provide services for the above client on the date of <strong>{event.eventDate||"________"}</strong> between the hours of <strong>{event.startTime?f12(event.startTime):"______"}</strong> to <strong>{event.endTime?f12(event.endTime):"______"}</strong> for a <strong>{meta(event.eventType).label}</strong> to be held at <strong>{event.venueName||"________________"}</strong> located in <strong>{[event.venueCity,event.venueState].filter(Boolean).join(", ")||"________"}</strong>.</p>
 
-          <p style={{marginBottom:"24px",fontWeight:600,fontSize:"14px",color:"#b52b2b"}}>Required contract signing payment (non-refundable deposit): ${deposit.toFixed(2)}</p>
+          <p style={{marginBottom:"24px",fontWeight:600,fontSize:"14px",color:"#b52b2b"}}>Required contract signing payment (non-refundable deposit): {money(deposit)}</p>
 
           {/* Pricing table */}
           <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px",fontSize:"13px"}}>
@@ -1360,15 +1374,15 @@ function ContractView({event,payRequests,onClose}){
               {reqs.map((r,i)=>(
                 <tr key={r.id} style={{borderBottom:"1px solid #dde1eb",background:i%2===0?"#f7f8fb":"#fff"}}>
                   <td style={{padding:"10px 14px"}}>{r.label}</td>
-                  <td style={{padding:"10px 14px",textAlign:"right",fontWeight:600}}>${parseFloat(r.amount||0).toFixed(2)}</td>
+                  <td style={{padding:"10px 14px",textAlign:"right",fontWeight:600}}>{money(r.amount)}</td>
                 </tr>
               ))}
               {reqs.length===0&&<tr><td style={{padding:"10px 14px",color:"#9fa4bc",fontStyle:"italic"}}>Services</td><td style={{padding:"10px 14px",textAlign:"right"}}>$0.00</td></tr>}
             </tbody>
             <tfoot>
-              <tr style={{borderTop:"2px solid #111111"}}><td style={{padding:"10px 14px",fontWeight:700}}>Total</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,fontSize:"15px"}}>${total.toFixed(2)}</td></tr>
-              <tr><td style={{padding:"6px 14px",color:"#6a7090"}}>Contract Signing Payment (Deposit)</td><td style={{padding:"6px 14px",textAlign:"right",color:"#6a7090"}}>-${deposit.toFixed(2)}</td></tr>
-              <tr style={{background:"#eaf7f0"}}><td style={{padding:"10px 14px",fontWeight:700,color:"#157a42"}}>Balance Due on Day of Event</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,color:"#157a42"}}>${Math.max(0,total-deposit).toFixed(2)}</td></tr>
+              <tr style={{borderTop:"2px solid #111111"}}><td style={{padding:"10px 14px",fontWeight:700}}>Total</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,fontSize:"15px"}}>{money(total)}</td></tr>
+              <tr><td style={{padding:"6px 14px",color:"#6a7090"}}>Contract Signing Payment (Deposit)</td><td style={{padding:"6px 14px",textAlign:"right",color:"#6a7090"}}>-{money(deposit)}</td></tr>
+              <tr style={{background:"#eaf7f0"}}><td style={{padding:"10px 14px",fontWeight:700,color:"#157a42"}}>Balance Due on Day of Event</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,color:"#157a42"}}>{money(Math.max(0,total-deposit))}</td></tr>
             </tfoot>
           </table>
 
@@ -1382,7 +1396,7 @@ function ContractView({event,payRequests,onClose}){
               ["1.2","The date of the event is not reserved until this Booking Contract or a Retainer Agreement is returned with the contract signing fee to "+brand.name+". The client will be informed if others are interested in the date of the event specified in this Booking Contract."],
               ["1.3",brand.name+" shall be excused by detention of personnel by sickness, accidents, riots, strikes, epidemics, Acts of God, Force Major, Acts of War or any other legitimate condition beyond "+brand.name+"'s control. If such circumstances arise, all reasonable efforts shall be made by "+brand.name+" to find a replacement entertainment at the agreed upon fees. Should "+brand.name+" be unable to procure a replacement, the client shall receive a 110% refund of all fees paid. The client agrees that "+brand.name+"'s liability shall be exclusively limited to refunding 110% of the fees paid."],
               ["1.4",brand.name+" shall be ready to perform at the start time of the event. "+brand.name+" requests at least 90 minutes before the event and at least 90 minutes after the event for setup and take down."],
-              ["1.5","This agreement shall be governed by the laws of the State of Michigan. In the event of suit, the client agrees that suit shall be in Kent County."],
+              ["1.5","This agreement shall be governed by the laws of the State of Michigan. In the event of suit, the client agrees that suit shall be in Oakland County."],
               ["1.6","Except for negligent acts by "+brand.name+" personnel, the client agrees to defend, indemnify, assume liability for and hold "+brand.name+" harmless from any claims, damages, losses and expenses which pertains directly or indirectly to "+brand.name+"'s performance."],
               ["1.7","In the event that a civil action arises in an effort to enforce any provision of this agreement, the losing party shall pay the attorney's fee and court costs of the prevailing party."],
               ["1.8","The client may not transfer this Event Booking Contract to another party without the prior written consent of "+brand.name+"."],
@@ -1523,7 +1537,7 @@ function App(){
     } else {
       const{data:evs}=await DB.from("dj_events").select("*").eq("user_id",u.id).order("updated_at",{ascending:false});
       setEvents((evs||[]).map(fromRow));
-      const{data:pr}=await DB.from("dj_payment_requests").select("*");
+      const{data:pr}=await DB.from("dj_payment_requests").select("*").in("event_id",(evs||[]).map(e=>e.id));
       setPayReqs(pr||[]);
       setScreen("dash");
     }
@@ -1548,7 +1562,7 @@ function App(){
   const handleSavePaySettings=async s=>{await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});setPaySet(s);};
 
   const handleAddClient=async(name,email,password)=>{
-    const{data,error}=await DB.auth.signUp({email,password,options:{data:{name}}});
+    const{error}=await SIGNUP_DB.auth.signUp({email,password,options:{data:{name}}});
     if(error)return error.message;
     const{data:profs}=await DB.from("dj_profiles").select("*").order("created_at",{ascending:false});
     setProfs(profs||[]);
