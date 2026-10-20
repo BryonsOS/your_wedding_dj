@@ -1562,8 +1562,12 @@ function App(){
   const handleSavePaySettings=async s=>{await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});setPaySet(s);};
 
   const handleAddClient=async(name,email,password)=>{
-    const{error}=await SIGNUP_DB.auth.signUp({email,password,options:{data:{name}}});
+    const{data,error}=await SIGNUP_DB.auth.signUp({email,password,options:{data:{name}}});
     if(error)return error.message;
+    if(!data?.user?.id)return "Could not create the account. Please try again.";
+    // No DB trigger creates dj_profiles rows (auth is shared with other apps), so the admin adds it here
+    const{error:pErr}=await DB.from("dj_profiles").upsert({id:data.user.id,name,email,is_admin:false},{onConflict:"id"});
+    if(pErr)return pErr.message;
     const{data:profs}=await DB.from("dj_profiles").select("*").order("created_at",{ascending:false});
     setProfs(profs||[]);
     return null;
