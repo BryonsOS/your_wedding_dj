@@ -179,7 +179,7 @@ const f12 = t => {
 };
 const fDate  = d => { if(!d) return "TBD"; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}); }catch{return d;} };
 const money  = n => "$"+(parseFloat(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-const PAY_METHODS = ["Cash","Check","Cashier's check","Money order","Venmo","Cash App","Zelle","PayPal","Card","Other"];
+const PAY_METHODS = ["Cash","Check","PayPal","Venmo","Apple Pay","Other"]; // "Other" asks for a typed method
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const paidFor = (eventId,pays) => (pays||[]).filter(p=>p.eventId===eventId).reduce((t,p)=>t+(parseFloat(p.amount)||0),0);
 const fShort = d => { if(!d) return ""; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }catch{return d;} };
@@ -1187,8 +1187,13 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
   const evPaid=paidFor(event.id,payments);
   const evBal=Math.max(0,evTotal-evPaid);
   const isPast=!!event.eventDate&&event.eventDate<todayISO();
-  const openPay=(o={})=>setPf({amount:"",paidOn:todayISO(),method:"",reference:"",note:"",requestId:null,...o});
-  const savePay=async()=>{if(!(parseFloat(pf.amount)>0))return alert("Enter the amount received.");await onAddPayment({...pf,id:uid(),eventId:event.id});setPf(null);};
+  const openPay=(o={})=>setPf({amount:"",paidOn:todayISO(),method:"",methodOther:"",reference:"",note:"",requestId:null,...o});
+  const savePay=async()=>{
+    if(!(parseFloat(pf.amount)>0))return alert("Enter the amount received.");
+    if(pf.method==="Other"&&!pf.methodOther.trim())return alert("Type the payment method for Other.");
+    const{methodOther,...rest}=pf;
+    await onAddPayment({...rest,method:pf.method==="Other"?methodOther.trim():pf.method,id:uid(),eventId:event.id});setPf(null);
+  };
   const ps=paySettings||BLANK_PAY;
   const m=meta(event.eventType);
   const gcal=gcalLink(event);
@@ -1264,8 +1269,9 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
             <div className="fg"><label className="lbl">Date Received</label><input type="date" value={pf.paidOn} onChange={e=>setPf(f=>({...f,paidOn:e.target.value}))}/></div>
             <div className="fg"><label className="lbl">Method</label><select value={pf.method} onChange={e=>setPf(f=>({...f,method:e.target.value}))}><option value="">Choose…</option>{PAY_METHODS.map(m=><option key={m}>{m}</option>)}</select></div>
           </div>
+          {pf.method==="Other"&&<div className="fg" style={{marginBottom:"12px"}}><label className="lbl">Other Method</label><input value={pf.methodOther} onChange={e=>setPf(f=>({...f,methodOther:e.target.value}))} placeholder="e.g. Zelle, Cash App, money order, card…" autoFocus/></div>}
           <div className="g2" style={{marginBottom:"12px"}}>
-            <div className="fg"><label className="lbl">Check # / Reference</label><input value={pf.reference} onChange={e=>setPf(f=>({...f,reference:e.target.value}))} placeholder="Optional"/></div>
+            <div className="fg"><label className="lbl">{pf.method==="Check"?"Check #":"Reference"}</label><input value={pf.reference} onChange={e=>setPf(f=>({...f,reference:e.target.value}))} placeholder="Optional"/></div>
             <div className="fg"><label className="lbl">Note</label><input value={pf.note} onChange={e=>setPf(f=>({...f,note:e.target.value}))} placeholder="Deposit, Final payment, Overtime…"/></div>
           </div>
           <div style={{display:"flex",gap:"8px"}}><button className="btn b-out" onClick={()=>setPf(null)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-green" onClick={savePay} style={{flex:1,justifyContent:"center"}}>Save Payment</button></div>
