@@ -185,11 +185,19 @@ const paidFor = (eventId,pays) => (pays||[]).filter(p=>p.eventId===eventId).redu
 const num = v => v===""||v==null ? null : (parseFloat(v)||0);
 const str = v => v==null ? "" : String(v);
 // Itemized price lines for an event's package, extra time and add-ons (snapshot stored on the event)
+// "Hourly" style package: 1 hour whose price equals the overtime rate, so hours are just a quantity
+const isHourly = ev => (num(ev.packageHours)||0)<=1 && num(ev.packagePrice)>0 && num(ev.packagePrice)===num(ev.overtimeRate);
 const priceLines = ev => {
-  const L=[];
-  if(ev.packageName) L.push({id:"pkg",label:`${ev.packageName} Package${num(ev.packageHours)?` — ${num(ev.packageHours)} hour${num(ev.packageHours)===1?"":"s"}`:""}`,amount:num(ev.packagePrice)||0});
-  if(num(ev.extraHours)>0) L.push({id:"ot",label:`Additional time — ${num(ev.extraHours)} hr × ${money(ev.overtimeRate)}`,amount:num(ev.extraHours)*(num(ev.overtimeRate)||0)});
+  const L=[], extra=num(ev.extraHours)||0, rate=num(ev.overtimeRate)||0;
+  if(ev.packageName&&isHourly(ev)){
+    const h=(num(ev.packageHours)||1)+extra;
+    L.push({id:"pkg",label:`${ev.packageName} — ${h} hour${h===1?"":"s"} × ${money(ev.packagePrice)}`,amount:(num(ev.packagePrice)||0)+extra*rate});
+  } else {
+    if(ev.packageName) L.push({id:"pkg",label:`${ev.packageName} Package${num(ev.packageHours)?` — ${num(ev.packageHours)} hour${num(ev.packageHours)===1?"":"s"}`:""}`,amount:num(ev.packagePrice)||0});
+    if(extra>0) L.push({id:"ot",label:`Additional time — ${extra} hr × ${money(rate)}`,amount:extra*rate});
+  }
   (ev.addons||[]).forEach(a=>L.push({id:"a"+a.id,label:(a.qty||1)>1?`${a.name} × ${a.qty}`:a.name,amount:(num(a.price)||0)*(a.qty||1)}));
+  if(num(ev.discountAmount)>0) L.push({id:"disc",label:ev.discountLabel||"Discount",amount:-num(ev.discountAmount)});
   return L;
 };
 const linesTotal = L => L.reduce((t,l)=>t+(l.amount||0),0);
@@ -215,7 +223,7 @@ const blankEv = () => ({
   candleLighting:Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
   vibes:[],mustPlay:[{song:"",artist:""}],doNotPlay:[{song:"",artist:""}],
   specialRequests:"",totalAmount:"",status:"draft",
-  packageId:"",packageName:"",packagePrice:"",packageHours:"",overtimeRate:"",extraHours:"",addons:[],depositAmount:"",
+  packageId:"",packageName:"",packagePrice:"",packageHours:"",overtimeRate:"",extraHours:"",addons:[],depositAmount:"",discountAmount:"",discountLabel:"",
 });
 
 // ── DB row mappers ─────────────────────────────
@@ -243,6 +251,7 @@ const toRow = ev => ({
   package_id:ev.packageId||null, package_name:ev.packageName||null, package_price:num(ev.packagePrice),
   package_hours:num(ev.packageHours), overtime_rate:num(ev.overtimeRate), extra_hours:num(ev.extraHours),
   addons:ev.addons||[], deposit_amount:num(ev.depositAmount),
+  discount_amount:num(ev.discountAmount), discount_label:ev.discountLabel||null,
   updated_at:new Date().toISOString(),
 });
 
@@ -270,6 +279,7 @@ const fromRow = r => !r ? null : ({
   specialRequests:r.special_requests||"", totalAmount:str(r.total_amount),
   packageId:r.package_id||"", packageName:r.package_name||"", packagePrice:str(r.package_price), packageHours:str(r.package_hours),
   overtimeRate:str(r.overtime_rate), extraHours:str(r.extra_hours), addons:r.addons||[], depositAmount:str(r.deposit_amount),
+  discountAmount:str(r.discount_amount), discountLabel:r.discount_label||"",
   status:r.status||"draft", createdAt:r.created_at, updatedAt:r.updated_at,
 });
 
@@ -595,13 +605,18 @@ function PackagePicker({d,u,catalog}){
   const setQty=(id,q)=>apply({addons:d.addons.map(x=>x.id===id?{...x,qty:Math.max(1,parseInt(q,10)||1)}:x)});
   const setPrice=(id,v)=>apply({addons:d.addons.map(x=>x.id===id?{...x,price:num(v)||0}:x)});
   const calc=linesTotal(priceLines(d));
+  const hourly=isHourly(d);
+  const subtotal=linesTotal(priceLines({...d,discountAmount:""}));
+  const setDisc=amt=>apply({discountAmount:amt===""?"":String(Math.round(amt*100)/100),discountLabel:d.discountLabel||"Discount"});
   return(
     <div style={{padding:"18px",background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px"}}>
       <div className="lbl" style={{color:"var(--purple)",marginBottom:"12px"}}>Package & Pricing (admin only)</div>
       <div className="g3" style={{marginBottom:"14px"}}>
         <div className="fg"><label className="lbl">Package</label>
           <select value={d.packageId||""} onChange={e=>pick(e.target.value)}><option value="">No package</option>{pk.map(p=><option key={p.id} value={p.id}>{p.name} — {money(p.price)}{num(p.hours)?` / ${num(p.hours)} hr`:""}</option>)}</select></div>
-        <div className="fg"><label className="lbl">Extra Hours{d.overtimeRate?` (${money(d.overtimeRate)}/hr)`:""}</label><input type="number" min="0" step="0.5" value={d.extraHours} onChange={e=>apply({extraHours:e.target.value})} placeholder="0" disabled={!d.packageId}/></div>
+        {hourly
+          ? <div className="fg"><label className="lbl">Hours ({money(d.packagePrice)}/hr)</label><input type="number" min="1" step="0.5" value={(num(d.packageHours)||1)+(num(d.extraHours)||0)} onChange={e=>apply({extraHours:String(Math.max(0,(parseFloat(e.target.value)||1)-(num(d.packageHours)||1)))})}/></div>
+          : <div className="fg"><label className="lbl">Extra Hours{d.overtimeRate?` (${money(d.overtimeRate)}/hr)`:""}</label><input type="number" min="0" step="0.5" value={d.extraHours} onChange={e=>apply({extraHours:e.target.value})} placeholder="0" disabled={!d.packageId}/></div>}
         <div className="fg"><label className="lbl">Deposit ($)</label><input type="number" min="0" step="0.01" value={d.depositAmount} onChange={e=>u({depositAmount:e.target.value})} placeholder="200.00"/></div>
       </div>
       <label className="lbl">Add-ons</label>
@@ -616,9 +631,18 @@ function PackagePicker({d,u,catalog}){
             </>:<span style={{fontSize:"12px",color:"var(--muted)"}}>{money(a.price)}{a.per_unit?`/${a.per_unit}`:""}</span>}
           </div>);})}
       </div>
+      <label className="lbl">Discount</label>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap",alignItems:"center",marginBottom:"14px"}}>
+        <input list="disc-labels" value={d.discountLabel} onChange={e=>u({discountLabel:e.target.value})} placeholder="Label, e.g. School discount" style={{flex:"1 1 200px"}}/>
+        <datalist id="disc-labels">{["School discount","Repeat client","Friends & family","Non-profit discount","Military discount","Referral discount","Off-peak date"].map(x=><option key={x} value={x}/>)}</datalist>
+        <input type="number" min="0" step="0.01" value={d.discountAmount} onChange={e=>apply({discountAmount:e.target.value})} placeholder="$ off" style={{width:"110px"}}/>
+        {[["−$25",25],["−$50",50],["−$100",100]].map(([l,v])=><button key={l} className="btn b-out" onClick={()=>setDisc(v)} style={{padding:"7px 11px",fontSize:"12px"}}>{l}</button>)}
+        {[10,15].map(pc=><button key={pc} className="btn b-out" onClick={()=>setDisc(subtotal*pc/100)} style={{padding:"7px 11px",fontSize:"12px"}}>{pc}% off</button>)}
+        {num(d.discountAmount)>0&&<button className="btn b-ghost" onClick={()=>apply({discountAmount:"",discountLabel:""})} style={{padding:"7px 8px",fontSize:"12px"}}>Clear</button>}
+      </div>
       <div style={{display:"flex",alignItems:"flex-end",gap:"14px",flexWrap:"wrap"}}>
         <div className="fg" style={{width:"200px"}}><label className="lbl">Event Total ($)</label><input type="number" min="0" step="0.01" value={d.totalAmount} onChange={e=>u({totalAmount:e.target.value})} placeholder="1500.00"/></div>
-        <div style={{fontSize:"12.5px",color:"var(--body)",paddingBottom:"12px"}}>Calculated: <strong style={{color:"var(--ink)"}}>{money(calc)}</strong>{d.totalAmount!==""&&Math.abs((num(d.totalAmount)||0)-calc)>=0.005&&<span style={{color:"var(--purple)"}}> · {(num(d.totalAmount)||0)<calc?"discount":"adjustment"} of {money(Math.abs((num(d.totalAmount)||0)-calc))} will show on the invoice</span>}</div>
+        <div style={{fontSize:"12.5px",color:"var(--body)",paddingBottom:"12px"}}>{num(d.discountAmount)>0&&<>Subtotal {money(subtotal)} − {d.discountLabel||"Discount"} {money(d.discountAmount)} = </>}Calculated: <strong style={{color:"var(--ink)"}}>{money(calc)}</strong>{d.totalAmount!==""&&Math.abs((num(d.totalAmount)||0)-calc)>=0.005&&<span style={{color:"var(--purple)"}}> · {(num(d.totalAmount)||0)<calc?"discount":"adjustment"} of {money(Math.abs((num(d.totalAmount)||0)-calc))} will show on the invoice</span>}</div>
       </div>
     </div>
   );
