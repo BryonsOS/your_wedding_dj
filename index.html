@@ -192,7 +192,7 @@ const blankEv = () => ({
   horaSong:"",horaArtist:"",openingSong:"",openingArtist:"",
   candleLighting:Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
   vibes:[],mustPlay:[{song:"",artist:""}],doNotPlay:[{song:"",artist:""}],
-  specialRequests:"",adminNotes:"",status:"draft",
+  specialRequests:"",totalAmount:"",status:"draft",
 });
 
 // ── DB row mappers ─────────────────────────────
@@ -215,7 +215,8 @@ const toRow = ev => ({
   last_dance_song:ev.lastDanceSong, last_dance_artist:ev.lastDanceArtist,
   hora_song:ev.horaSong, hora_artist:ev.horaArtist,
   opening_song:ev.openingSong, opening_artist:ev.openingArtist,
-  special_requests:ev.specialRequests, admin_notes:ev.adminNotes, status:ev.status,
+  special_requests:ev.specialRequests, status:ev.status,
+  total_amount:ev.totalAmount===""||ev.totalAmount==null?null:(parseFloat(ev.totalAmount)||0),
   updated_at:new Date().toISOString(),
 });
 
@@ -240,7 +241,7 @@ const fromRow = r => !r ? null : ({
   lastDanceSong:r.last_dance_song||"", lastDanceArtist:r.last_dance_artist||"",
   horaSong:r.hora_song||"", horaArtist:r.hora_artist||"",
   openingSong:r.opening_song||"", openingArtist:r.opening_artist||"",
-  specialRequests:r.special_requests||"", adminNotes:r.admin_notes||"",
+  specialRequests:r.special_requests||"", totalAmount:r.total_amount!=null?String(r.total_amount):"",
   status:r.status||"draft", createdAt:r.created_at, updatedAt:r.updated_at,
 });
 
@@ -484,8 +485,7 @@ function ResetPassword({onDone}){
 // ════════════════════════════════════════════════
 // CLIENT DASHBOARD
 // ════════════════════════════════════════════════
-function Dashboard({user,events,onNew,onView,onEdit,onDelete,onLogout}){
-  const[del,setDel]=useState(null);
+function Dashboard({user,events,onView,onEdit,onLogout}){
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <header style={{background:"var(--nav)",padding:"0 28px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
@@ -502,20 +502,17 @@ function Dashboard({user,events,onNew,onView,onEdit,onDelete,onLogout}){
         <div style={{background:"var(--nav2)",borderRadius:"14px",padding:"clamp(24px,4vw,44px)",marginBottom:"36px"}} className="fade">
           <p style={{fontSize:"10.5px",fontWeight:700,letterSpacing:".13em",textTransform:"uppercase",color:"var(--g2)",marginBottom:"10px"}}>Event Planning Portal</p>
           <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(24px,4vw,42px)",fontWeight:400,color:"#fff",lineHeight:1.2,marginBottom:"12px"}}>Your Events</h1>
-          <p style={{fontSize:"14px",color:"rgba(255,255,255,.58)",marginBottom:"26px",maxWidth:"480px",lineHeight:1.7}}>Fill in your event details — timeline, songs, venue info — so nothing gets missed.</p>
-          <button className="btn b-gold" onClick={onNew} style={{fontSize:"14px",padding:"11px 26px"}}>+ Plan New Event</button>
+          <p style={{fontSize:"14px",color:"rgba(255,255,255,.58)",maxWidth:"480px",lineHeight:1.7}}>Fill in your planning details — timeline, songs, venue info — so nothing gets missed.</p>
         </div>
         {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}}>
           <h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>Your Events <span style={{fontFamily:"var(--fb)",fontSize:"14px",fontWeight:400,color:"var(--muted)"}}>({events.length})</span></h2>
-          {events.length>0&&<button className="btn b-out" onClick={onNew} style={{padding:"8px 16px",fontSize:"13px"}}>+ Add Event</button>}
         </div>
         {/* Cards */}
         {events.length===0 ? (
           <div style={{textAlign:"center",padding:"80px 24px",background:"var(--white)",borderRadius:"14px",border:"1.5px solid var(--border)"}}>
             <p style={{fontFamily:"var(--ff)",fontSize:"20px",color:"var(--ink)",marginBottom:"8px"}}>No events on file yet</p>
-            <p style={{fontSize:"14px",color:"var(--muted)",marginBottom:"22px"}}>Add your first event to get started.</p>
-            <button className="btn b-gold" onClick={onNew}>Plan My First Event</button>
+            <p style={{fontSize:"14px",color:"var(--muted)"}}>Your DJ is setting up your event. It will appear here once it's ready.</p>
           </div>
         ):(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"16px"}}>
@@ -541,19 +538,13 @@ function Dashboard({user,events,onNew,onView,onEdit,onDelete,onLogout}){
                 </div>
                 <div style={{display:"flex",gap:"8px",borderTop:"1px solid var(--border)",paddingTop:"12px"}} onClick={e=>e.stopPropagation()}>
                   <button className="btn b-out" onClick={()=>onView(ev.id)} style={{flex:1,justifyContent:"center",padding:"7px",fontSize:"12px"}}>View</button>
-                  <button className="btn b-out" onClick={()=>onEdit(ev.id)} style={{flex:1,justifyContent:"center",padding:"7px",fontSize:"12px"}}>Edit</button>
-                  <button className="btn b-ghost" onClick={()=>setDel(ev.id)} style={{padding:"7px 10px",color:"var(--red)",fontSize:"12px"}}>Remove</button>
+                  <button className="btn b-out" onClick={()=>onEdit(ev.id)} style={{flex:1,justifyContent:"center",padding:"7px",fontSize:"12px"}}>Edit Planning</button>
                 </div>
               </div>
             );})}
           </div>
         )}
       </main>
-      {del&&<Modal close={()=>setDel(null)} w={360}>
-        <h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:"10px"}}>Delete Event?</h3>
-        <p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"22px"}}>This cannot be undone.</p>
-        <div style={{display:"flex",gap:"10px"}}><button className="btn b-out" onClick={()=>setDel(null)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-danger" onClick={()=>{onDelete(del);setDel(null);}} style={{flex:1,justifyContent:"center"}}>Delete</button></div>
-      </Modal>}
     </div>
   );
 }
@@ -563,7 +554,18 @@ function Dashboard({user,events,onNew,onView,onEdit,onDelete,onLogout}){
 // ════════════════════════════════════════════════
 function StepHeader({title,sub}){return(<div><div style={{width:32,height:3,background:"var(--gold)",borderRadius:2,marginBottom:14}}/><h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:4}}>{title}</h2><p style={{fontSize:"13px",color:"var(--muted)",marginBottom:22,lineHeight:1.65}}>{sub}</p></div>);}
 
-function Step1({d,u}){return(<div className="fade">
+function Step1({d,u,locked,admin}){
+  if(locked){const m=meta(d.eventType);return(<div className="fade">
+    <StepHeader title="Your Event" sub="These details are set by your DJ."/>
+    <div style={{display:"flex",alignItems:"center",gap:"14px",padding:"18px 20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"12px",marginBottom:"14px"}}>
+      <span style={{fontSize:"28px"}}>{m.e}</span>
+      <div><p style={{fontSize:"10px",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"var(--gold)"}}>{m.label}</p><h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>{d.eventName||"Unnamed Event"}</h3></div>
+    </div>
+    <Row l="Date" v={fDate(d.eventDate)}/>
+    <Row l="Time" v={d.startTime?`${f12(d.startTime)}${d.endTime?` – ${f12(d.endTime)}`:""}`:"TBD"}/>
+    <p style={{fontSize:"12px",color:"var(--muted)",marginTop:"14px"}}>Need to change the date or time? Contact your DJ at bryon@yourweddingsdj.com.</p>
+  </div>);}
+  return(<div className="fade">
   <StepHeader title="What kind of event is this?" sub="Select your event type to get started."/>
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:"10px",marginBottom:"28px"}}>
     {ET.map(t=>{const on=d.eventType===t.id;return(
@@ -581,6 +583,7 @@ function Step1({d,u}){return(<div className="fade">
       <div className="fg"><label className="lbl">Start Time</label><input type="time" value={d.startTime} onChange={e=>u({startTime:e.target.value})}/></div>
       <div className="fg"><label className="lbl">End Time</label><input type="time" value={d.endTime} onChange={e=>u({endTime:e.target.value})}/></div>
     </div>
+    {admin&&<div className="fg" style={{maxWidth:"260px"}}><label className="lbl">Event Total ($)</label><input type="number" min="0" step="0.01" value={d.totalAmount} onChange={e=>u({totalAmount:e.target.value})} placeholder="1500.00"/></div>}
   </div>
 </div>);}
 
@@ -731,14 +734,14 @@ function EventForm({event,userId,clients,onSave,onCancel}){
   const save=async draft=>{
     if(admin&&!data.userId){setErr("Choose which client account this event belongs to.");return;}
     if(!draft){
-      const missing=REQ.filter(([,,k])=>!String(data[k]||"").trim());
+      const missing=REQ.filter(([st,,k])=>(admin||st>1)&&!String(data[k]||"").trim());
       if(missing.length){setErr(`Please fill in: ${missing.map(m=>m[1]).join(", ")}`);setStep(missing[0][0]);return;}
     }
     // Admin edits keep the event's current status (set it in Admin Controls); client saves draft/submit as before
     const status=admin&&event?.id?data.status:(draft?"draft":"submitted");
     setErr("");setSaving(true);const e=await onSave({...data,status,id:data.id||uid(),userId:data.userId||userId});setSaving(false);if(e)setErr(e);
   };
-  const steps=[<Step1 d={data} u={u}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
+  const steps=[<Step1 d={data} u={u} locked={!admin} admin={admin}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
   return(
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <header style={{background:"var(--nav)",padding:"0 24px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
@@ -802,6 +805,12 @@ function EventView({event,paySettings,payRequests,onEdit,onBack}){
       <TopNav title="Event Details" back={onBack} right={<button className="btn b-gold" onClick={onEdit} style={{padding:"8px 18px",fontSize:"13px"}}>Edit</button>}/>
       <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
         <Hero ev={event}/>
+        {event.totalAmount&&(()=>{const paid=(payRequests||[]).filter(r=>r.eventId===event.id&&r.status==="paid").reduce((t,r)=>t+(parseFloat(r.amount)||0),0);const tot=parseFloat(event.totalAmount)||0;return(
+          <div className="card" style={{marginBottom:"18px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"14px"}}>
+            {[["Event Total",money(tot),"var(--ink)"],["Paid",money(paid),"var(--green)"],["Balance",money(Math.max(0,tot-paid)),"var(--purple)"]].map(([l,v,c])=>(
+              <div key={l}><div className="lbl">{l}</div><div style={{fontFamily:"var(--ff)",fontSize:"24px",color:c}}>{v}</div></div>
+            ))}
+          </div>);})()}
         {/* Payment requests */}
         {pending.length>0&&<div style={{background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"20px 24px",marginBottom:"18px"}}>
           <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"16px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"18px",fontWeight:400,color:"var(--ink)"}}>Payment Due</h3></div>
@@ -937,9 +946,9 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
   const handleAddClient=async()=>{
     if(!cf.name.trim()||!cf.email.trim()||!cf.password.trim()){setCfErr("All fields are required.");return;}
     if(cf.password.length<6){setCfErr("Password must be at least 6 characters.");return;}
-    const err=await onAddClient(cf.name,cf.email,cf.password);
-    if(err){setCfErr(err);return;}
-    setCredmodal({name:cf.name,email:cf.email,password:cf.password});
+    const r=await onAddClient(cf.name,cf.email,cf.password);
+    if(typeof r==="string"){setCfErr(r);return;}
+    setCredmodal({name:cf.name,email:cf.email,password:cf.password,id:r?.id});
     setCmodal(false);setCf({name:"",email:"",password:""});setCfErr("");
   };
 
@@ -1031,7 +1040,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
                 <div style={{display:"flex",gap:"6px"}}>
                   <button className="btn b-out" onClick={()=>{setFilter(f=>({...f,uid:p.id,status:"all",type:"all",search:""}));setTab("list");}} style={{padding:"5px 10px",fontSize:"11px"}}>View Events</button>
                   <button className="btn b-out" onClick={()=>onNewEvent(p.id)} style={{padding:"5px 10px",fontSize:"11px"}}>+ Event</button>
-                  <button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)"})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button>
+                  <button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)",id:p.id})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button>
                 </div>
               </div>
             ))}
@@ -1060,6 +1069,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
           <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
             <CopyBtn text={cText(credmodal.name,credmodal.email,credmodal.password)} label="Copy Message"/>
             <a href={`mailto:${credmodal.email}?subject=${encodeURIComponent(`Your ${BRAND} Login`)}&body=${encodeURIComponent(cText(credmodal.name,credmodal.email,credmodal.password))}`} className="btn b-gold" style={{textDecoration:"none"}}>Open in Email App</a>
+            {credmodal.id&&<button className="btn b-out" onClick={()=>{const id=credmodal.id;setCredmodal(null);onNewEvent(id);}}>+ Create Their Event</button>}
             <button className="btn b-out" onClick={()=>setCredmodal(null)}>Done</button>
           </div>
         </Modal>}
@@ -1084,9 +1094,10 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
 // ════════════════════════════════════════════════
 // ADMIN EVENT VIEW
 // ════════════════════════════════════════════════
-function AdminEventView({event,profiles,paySettings,payRequests,onSave,onEditDetails,onAddPayReq,onUpdatePayReq,onBack}){
+function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests,onSave,onEditDetails,onAddPayReq,onUpdatePayReq,onBack}){
   const[status,setStatus]=useState(event.status||"draft");
-  const[notes,setNotes]=useState(event.adminNotes||"");
+  const[notes,setNotes]=useState(savedNotes||"");
+  const[total,setTotal]=useState(event.totalAmount||"");
   const[saved,setSaved]=useState(false);
   const[addingReq,setAddingReq]=useState(false);
   const[rf,setRf]=useState({amount:"",label:"",dueDate:""});
@@ -1098,7 +1109,7 @@ function AdminEventView({event,profiles,paySettings,payRequests,onSave,onEditDet
   const m=meta(event.eventType);
   const gcal=gcalLink(event);
 
-  const saveCtrl=async()=>{await onSave({...event,status,adminNotes:notes});setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const saveCtrl=async()=>{await onSave({...event,status,totalAmount:total},notes);setSaved(true);setTimeout(()=>setSaved(false),2500);};
   const addReq=async()=>{if(!rf.amount||!rf.label)return;await onAddPayReq({id:uid(),eventId:event.id,amount:rf.amount,label:rf.label,dueDate:rf.dueDate,status:"pending"});setAddingReq(false);setRf({amount:"",label:"",dueDate:""});};
 
   return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
@@ -1127,6 +1138,10 @@ function AdminEventView({event,profiles,paySettings,payRequests,onSave,onEditDet
               <option value="submitted">Submitted</option>
               <option value="confirmed">Confirmed</option>
             </select>
+          </div>
+          <div className="fg" style={{flex:"0 0 160px"}}>
+            <label className="lbl">Event Total ($)</label>
+            <input type="number" min="0" step="0.01" value={total} onChange={e=>setTotal(e.target.value)} placeholder="1500.00"/>
           </div>
           <div className="fg" style={{flex:1,minWidth:"200px"}}>
             <label className="lbl">Admin Notes (internal — client cannot see)</label>
@@ -1183,7 +1198,7 @@ function AdminEventView({event,profiles,paySettings,payRequests,onSave,onEditDet
       {event.doNotPlay?.some(s=>s.song)&&<Sec title="Do Not Play" emoji="🚫">{event.doNotPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{display:"flex",gap:"7px",marginBottom:"6px",fontSize:"13px"}}><span style={{color:"var(--red)"}}>✕</span><span style={{color:"var(--ink)"}}>{s.song}</span>{s.artist&&<span style={{color:"var(--muted)"}}>— {s.artist}</span>}</div>)}</Sec>}
       {event.vibes?.length>0&&<Sec title="Music Vibes" emoji="🎶"><div style={{display:"flex",flexWrap:"wrap",gap:"7px"}}>{event.vibes.map(v=><span key={v} style={{padding:"4px 11px",borderRadius:"20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",color:"var(--gold)",fontSize:"12px",fontWeight:600}}>{v}</span>)}</div></Sec>}
       {event.specialRequests&&<Sec title="Special Requests (from client)" emoji="📝"><p style={{fontSize:"13px",color:"var(--ink)",lineHeight:1.75}}>{event.specialRequests}</p></Sec>}
-      {event.adminNotes&&<Sec title="Admin Notes (internal)" emoji="🔐"><p style={{fontSize:"13px",color:"var(--purple)",lineHeight:1.75,fontStyle:"italic"}}>{event.adminNotes}</p></Sec>}
+      {savedNotes&&<Sec title="Admin Notes (internal)" emoji="🔐"><p style={{fontSize:"13px",color:"var(--purple)",lineHeight:1.75,fontStyle:"italic"}}>{savedNotes}</p></Sec>}
     </div>
   </div>);}
 
@@ -1241,7 +1256,7 @@ function gcalLink(event){
 function InvoiceView({event,payRequests,onClose}){
   const brand=getBrand(event.eventType);
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
-  const total=reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
   const paid=reqs.filter(r=>r.status==="paid").reduce((s,r)=>s+parseFloat(r.amount||0),0);
   const balance=total-paid;
   const m=meta(event.eventType);
@@ -1362,7 +1377,8 @@ function InvoiceView({event,payRequests,onClose}){
 function ContractView({event,payRequests,onClose}){
   const brand=getBrand(event.eventType);
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
-  const total=reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const lines=event.totalAmount?[{id:"svc",label:`DJ services — ${meta(event.eventType).label}`,amount:total}]:reqs;
   const deposit=200.00;
   const [clientSig,setClientSig]=useState("");
   const [clientDate,setClientDate]=useState("");
@@ -1401,13 +1417,13 @@ function ContractView({event,payRequests,onClose}){
           <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px",fontSize:"13px"}}>
             <thead><tr style={{background:"#111111"}}><th style={{padding:"10px 14px",textAlign:"left",color:"#fff",fontWeight:600}}>Description</th><th style={{padding:"10px 14px",textAlign:"right",color:"#fff",fontWeight:600}}>Amount</th></tr></thead>
             <tbody>
-              {reqs.map((r,i)=>(
+              {lines.map((r,i)=>(
                 <tr key={r.id} style={{borderBottom:"1px solid #dde1eb",background:i%2===0?"#f7f8fb":"#fff"}}>
                   <td style={{padding:"10px 14px"}}>{r.label}</td>
                   <td style={{padding:"10px 14px",textAlign:"right",fontWeight:600}}>{money(r.amount)}</td>
                 </tr>
               ))}
-              {reqs.length===0&&<tr><td style={{padding:"10px 14px",color:"#9fa4bc",fontStyle:"italic"}}>Services</td><td style={{padding:"10px 14px",textAlign:"right"}}>$0.00</td></tr>}
+              {lines.length===0&&<tr><td style={{padding:"10px 14px",color:"#9fa4bc",fontStyle:"italic"}}>Services</td><td style={{padding:"10px 14px",textAlign:"right"}}>$0.00</td></tr>}
             </tbody>
             <tfoot>
               <tr style={{borderTop:"2px solid #111111"}}><td style={{padding:"10px 14px",fontWeight:700}}>Total</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,fontSize:"15px"}}>{money(total)}</td></tr>
@@ -1525,6 +1541,7 @@ function App(){
   const[paySet,setPaySet] =useState(BLANK_PAY);
   const[payReqs,setPayReqs]=useState([]);
   const[selId,setSelId]   =useState(null);
+  const[notesMap,setNotesMap]=useState({}); // admin-only notes, keyed by event id
 
   // ── Load session on mount ────────────────────
   useEffect(()=>{
@@ -1563,6 +1580,8 @@ function App(){
       setProfs(profs||[]);
       const{data:pr}=await DB.from("dj_payment_requests").select("*");
       setPayReqs(pr||[]);
+      const{data:nt}=await DB.from("dj_event_notes").select("*");
+      setNotesMap(Object.fromEntries((nt||[]).map(n=>[n.event_id,n.notes||""])));
       setScreen("admin");
     } else {
       const{data:evs}=await DB.from("dj_events").select("*").eq("user_id",u.id).order("updated_at",{ascending:false});
@@ -1577,7 +1596,9 @@ function App(){
   const handleLogout=async()=>{await DB.auth.signOut();setUser(null);setEvents([]);setScreen("auth");};
 
   const handleSaveEvent=async ev=>{
-    const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();
+    // Clients can only update events the admin created (the DB rejects client inserts, incl. upserts)
+    const q=user?.is_admin?DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}):DB.from("dj_events").update(toRow(ev)).eq("id",ev.id);
+    const{data,error}=await q.select().single();
     if(error||!data)return `Couldn't save the event: ${error?.message||"no response from the database"}`;
     const mapped=fromRow(data);
     setEvents(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
@@ -1586,9 +1607,15 @@ function App(){
     setScreen(user?.is_admin?"admin_view":"view");
   };
 
-  const handleDelete=async id=>{const{error}=await DB.from("dj_events").delete().eq("id",id);if(error){alert(`Couldn't delete: ${error.message}`);return;}setEvents(p=>p.filter(e=>e.id!==id));setAllEvs(p=>p.filter(e=>e.id!==id));};
   const[newFor,setNewFor]=useState(null); // client id preselected when admin starts a new event
-  const handleAdminSave=async ev=>{const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();if(error){alert(`Couldn't save: ${error.message}`);return;}if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}};
+  const handleAdminSave=async(ev,notes)=>{
+    const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();
+    if(error){alert(`Couldn't save: ${error.message}`);return;}
+    const{error:nErr}=await DB.from("dj_event_notes").upsert({event_id:ev.id,notes,updated_at:new Date().toISOString()},{onConflict:"event_id"});
+    if(nErr){alert(`Couldn't save notes: ${nErr.message}`);return;}
+    setNotesMap(m=>({...m,[ev.id]:notes}));
+    if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}
+  };
   const handleSavePaySettings=async s=>{const{error}=await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});if(error){alert(`Couldn't save payment settings: ${error.message}`);return;}setPaySet(s);};
 
   const handleAddClient=async(name,email,password)=>{
@@ -1600,7 +1627,7 @@ function App(){
     if(pErr)return pErr.message;
     const{data:profs}=await DB.from("dj_profiles").select("*").order("created_at",{ascending:false});
     setProfs(profs||[]);
-    return null;
+    return {id:data.user.id};
   };
 
   const handleAddPayReq=async req=>{
@@ -1665,14 +1692,13 @@ function App(){
   return(<>
     {screen==="auth"       && <Auth onLogin={handleLogin}/>}
     {screen==="reset"      && <ResetPassword onDone={handleResetDone}/>}
-    {screen==="dash"       && <Dashboard user={user} events={events} onNew={()=>{setSelId(null);setScreen("new");}} onView={id=>{setSelId(id);setScreen("view");}} onEdit={id=>{setSelId(id);setScreen("edit");}} onDelete={handleDelete} onLogout={handleLogout}/>}
-    {screen==="new"        && <EventForm event={null} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("dash")}/>}
+    {screen==="dash"       && <Dashboard user={user} events={events} onView={id=>{setSelId(id);setScreen("view");}} onEdit={id=>{setSelId(id);setScreen("edit");}} onLogout={handleLogout}/>}
     {screen==="edit"       && <EventForm event={sel} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("view")}/>}
     {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
     {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
     {screen==="admin_new"  && <EventForm event={null} userId={newFor} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin")}/>}
     {screen==="admin_edit" && <EventForm event={sel} userId={sel?.userId} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin_view")}/>}
-    {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
+    {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} notes={notesMap[sel?.id]} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
   </>);
 }
 
