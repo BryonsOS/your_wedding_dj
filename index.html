@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YourWeddingsDJ — Event Portal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    /* Black & White Elegant surfaces */
+    --nav:#000000; --nav2:#0a0a0a;
+    --bg:#050505; --white:#0d0d0d; --panel:#111111;
+    --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.15);
+    /* Text */
+    --ink:#f5f5f5; --body:#a0a0a0; --muted:#606060; --dim:#383838;
+    /* Silver/White accent (replaces gold) */
+    --gold:#d4d4d4; --g2:#ffffff; --gbg:rgba(255,255,255,.07); --gbdr:rgba(255,255,255,.2);
+    /* Green */
+    --green:#6ee7b7; --gbg2:rgba(110,231,183,.08); --gbdr2:rgba(110,231,183,.25);
+    /* Blue */
+    --blue:#93c5fd; --bbg:rgba(147,197,253,.08); --bbdr:rgba(147,197,253,.25);
+    /* Red */
+    --red:#fca5a5; --rbg:rgba(252,165,165,.08); --rbdr:rgba(252,165,165,.25);
+    /* Purple */
+    --purple:#c4b5fd; --pbg:rgba(196,181,253,.08); --pbdr:rgba(196,181,253,.25);
+    --ff:'Playfair Display',Georgia,serif; --fb:'Inter',system-ui,sans-serif; --r:10px;
+  }
+  body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh}
+  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--nav)}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+  input,textarea,select{
+    font-family:var(--fb);font-size:14px;background:rgba(255,255,255,.05);
+    border:1.5px solid var(--border2);color:var(--ink);border-radius:var(--r);
+    padding:11px 14px;width:100%;outline:none;transition:border-color .18s,box-shadow .18s;
+    -webkit-appearance:none; color-scheme:dark;
+  }
+  input:focus,textarea:focus,select:focus{border-color:rgba(255,255,255,.5);box-shadow:0 0 0 3px rgba(255,255,255,.07);background:rgba(255,255,255,.03)}
+  input::placeholder,textarea::placeholder{color:var(--dim)}
+  select option{background:#1a1a28}
+  textarea{resize:vertical;min-height:80px}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .fade{animation:fadeUp .25s cubic-bezier(.22,1,.36,1) forwards}
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:var(--r);font-family:var(--fb);font-size:13.5px;font-weight:500;cursor:pointer;border:none;transition:all .18s;line-height:1;white-space:nowrap;text-decoration:none;letter-spacing:.01em}
+  .btn:disabled{opacity:.38;cursor:not-allowed}
+  .b-gold{background:#fff;color:#000;box-shadow:0 2px 16px rgba(255,255,255,.12)}.b-gold:hover:not(:disabled){background:#e8e8e8;box-shadow:0 4px 24px rgba(255,255,255,.2);transform:translateY(-1px)}
+  .b-out{background:rgba(255,255,255,.04);border:1.5px solid var(--border2);color:var(--body)}.b-out:hover:not(:disabled){border-color:rgba(255,255,255,.4);color:var(--ink);background:rgba(255,255,255,.07)}
+  .b-ghost{background:transparent;color:var(--muted)}.b-ghost:hover{color:var(--ink)}
+  .b-nav{background:transparent;border:none;color:rgba(255,255,255,.5);padding:6px 10px;font-size:13px;cursor:pointer;font-family:var(--fb);transition:color .15s}.b-nav:hover{color:#fff}
+  .b-danger{background:transparent;border:1.5px solid var(--rbdr);color:var(--red)}.b-danger:hover{background:var(--rbg)}
+  .b-purple{background:#6d28d9;color:#fff}.b-purple:hover{background:#7c3aed}
+  .b-green{background:#15803d;color:#fff}.b-green:hover{background:#16a34a}
+  /* Layout */
+  .card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 1px 20px rgba(0,0,0,.4)}
+  .lbl{display:block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+  .fg{display:flex;flex-direction:column;gap:5px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:600px){.g2,.g3{grid-template-columns:1fr}}
+  /* Badges */
+  .badge{display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .st-draft{background:rgba(255,255,255,.07);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
+  .st-submitted{background:var(--bbg);color:var(--blue);border:1px solid var(--bbdr)}
+  .st-confirmed{background:var(--gbg2);color:var(--green);border:1px solid var(--gbdr2)}
+  /* Admin badge */
+  .adm{padding:3px 9px;border-radius:20px;background:var(--purple);color:#fff;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;opacity:.9}
+  /* Song card */
+  .sc{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:10px;transition:border-color .18s}
+  .sc:focus-within{border-color:rgba(255,255,255,.25)}
+  .sc-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.5);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  /* Timeline row */
+  .tl{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:90px 1fr 1fr 34px;gap:10px;align-items:end;margin-bottom:8px;transition:border-color .18s}
+  .tl:focus-within{border-color:rgba(255,255,255,.22)}
+  @media(max-width:600px){.tl{grid-template-columns:1fr}}
+  /* Vibe chip */
+  .vc{padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;user-select:none;transition:all .16s;font-weight:500}
+  .vc-on{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.6);color:#fff;font-weight:600;box-shadow:0 0 12px rgba(255,255,255,.08)}
+  .vc-off{background:rgba(255,255,255,.04);border:1.5px solid var(--border2);color:var(--body)}.vc-off:hover{border-color:rgba(255,255,255,.35);color:var(--ink)}
+  /* Toggle */
+  .tog{position:relative;width:46px;height:26px;cursor:pointer;flex-shrink:0;display:inline-block}
+  .tog-track{width:100%;height:100%;border-radius:13px;transition:background .2s;border:1px solid rgba(255,255,255,.1)}
+  .tog-thumb{position:absolute;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;padding:24px}
+  /* Spinner */
+  .spin{width:34px;height:34px;border:2.5px solid rgba(255,255,255,.08);border-top-color:rgba(255,255,255,.7);border-radius:50%;animation:spin 1s linear infinite}
+  /* Calendar */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .cal-hd{text-align:center;padding:9px 2px;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--muted);background:var(--panel);border-bottom:1px solid var(--border)}
+  .cal-cell{min-height:86px;border:1px solid var(--border);padding:5px;background:var(--white)}
+  .cal-today{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.25)!important}
+  .cal-blank{background:rgba(0,0,0,.2)}
+  .cal-ev{font-size:10.5px;padding:3px 6px;border-radius:5px;margin-bottom:2px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-ev:hover{opacity:.75}
+  /* Tabs */
+  .tab{padding:11px 22px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-left:none;border-right:none;border-top:none;font-family:var(--fb);transition:color .15s,border-color .15s;color:var(--muted);font-weight:500}
+  .tab.on{border-bottom-color:#fff;color:#fff;font-weight:600}
+  .tab.off{color:var(--muted)}.tab.off:hover{color:var(--body)}
+  /* Pay method */
+  .pm{border:1px solid var(--border);border-radius:14px;padding:18px 22px;background:rgba(255,255,255,.03);margin-bottom:12px;transition:border-color .18s,background .18s}
+  .pm.on{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+  /* Divider */
+  hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+// ════════════════════════════════════════════════
+// ★ YOUR CONFIG — FILL THESE IN ★
+// ════════════════════════════════════════════════
+const SB_URL    = "https://mhktyejanikvdnjbndgi.supabase.co";
+const SB_ANON   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oa3R5ZWphbmlrdmRuamJuZGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjAyNzcsImV4cCI6MjA5NTM5NjI3N30.OtahkiwKHx-tth18cFZHHKMLGG1ZKjxZT2M5baf0sUs";
+const BRAND     = "YourWeddingsDJ.com";
+const PORTAL    = "https://yourweddingsdj.com";
+const INVITE_CODE = "YOURWEDDING2025"; // ← share this with clients; change it anytime
+// Admin = any Supabase account you set is_admin=true on
+// ════════════════════════════════════════════════
+
+const {createClient} = supabase;
+const CONFIGURED = SB_URL !== "YOUR_SUPABASE_URL" && SB_ANON !== "YOUR_SUPABASE_ANON_KEY";
+const DB = CONFIGURED ? createClient(SB_URL, SB_ANON) : null;
+const {useState, useEffect, useCallback} = React;
+
+// ── Constants ──────────────────────────────────
+const ET = [
+  {id:"wedding",      label:"Wedding",               e:"💍"},
+  {id:"bar_mitzvah",  label:"Bar Mitzvah",           e:"✡"},
+  {id:"bat_mitzvah",  label:"Bat Mitzvah",           e:"✡"},
+  {id:"school_dance", label:"School Dance / Prom",   e:"🎓"},
+  {id:"corporate",    label:"Corporate Event",        e:"🏢"},
+  {id:"birthday",     label:"Birthday Party",         e:"🎂"},
+  {id:"sweet_16",     label:"Sweet 16 / Quinceañera",e:"👑"},
+  {id:"other",        label:"Other Event",            e:"🎵"},
+];
+
+const VIBES = ["Top 40 / Pop","Hip Hop / R&B","Country","Classic Rock","EDM / Dance","Latin",
+  "Jazz / Standards","Oldies (50s–70s)","80s Hits","90s Hits","2000s Nostalgia",
+  "Disney / Kid-Friendly","Reggae / Tropical","Soul / Funk","Alternative / Indie"];
+
+const TL = {
+  wedding:["Cocktail Hour","Bridal Party Entrance","Grand Entrance (Couple)","First Dance","Dinner Service","Father / Daughter Dance","Mother / Son Dance","Toasts / Speeches","Cake Cutting","Open Dancing","Last Dance"],
+  bar_mitzvah:["Cocktail Hour","Grand Entrance","Torah Reading","Hora","Dinner Service","Candle Lighting Ceremony","Open Dancing","Last Dance"],
+  bat_mitzvah:["Cocktail Hour","Grand Entrance","Torah Reading","Hora","Dinner Service","Candle Lighting Ceremony","Open Dancing","Last Dance"],
+  school_dance:["Doors Open","Grand Entrance","Opening Set","Court Coronation","Open Dancing","Last Dance"],
+  corporate:["Guest Arrival","Dinner Service","Awards / Presentations","Open Dancing","Event End"],
+  birthday:["Guest Arrival","Grand Entrance","Dinner / Food","Cake Cutting","Open Dancing","Last Dance"],
+  sweet_16:["Guest Arrival","Grand Entrance","Dinner / Food","Cake Cutting","Special Dances","Open Dancing","Last Dance"],
+  other:["Guest Arrival","Event Opens","Main Program","Dancing","Event End"],
+};
+
+const STEPS = [{l:"Event Type",i:"1"},{l:"Contact",i:"2"},{l:"Venue",i:"3"},{l:"Timeline",i:"4"},{l:"Music",i:"5"},{l:"Requests",i:"6"},{l:"Review",i:"7"}];
+
+const BLANK_PAY = {paypalMe:"",venmo:"",cashApp:"",zelle:"",methods:{paypal:false,venmo:false,cashapp:false,zelle:false}};
+
+// ── Helpers ────────────────────────────────────
+const uid   = () => `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+const meta  = id  => ET.find(t=>t.id===id) || {label:"Event",e:"🎵"};
+const copy  = t   => { try{navigator.clipboard.writeText(t);}catch{const el=document.createElement("textarea");el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);} };
+
+const f12 = t => {
+  if(!t) return "";
+  try{ const [h,m]=t.split(":"); const d=new Date(); d.setHours(+h,+m); return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}); }
+  catch{ return t; }
+};
+const fDate  = d => { if(!d) return "TBD"; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}); }catch{return d;} };
+const fShort = d => { if(!d) return ""; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }catch{return d;} };
+
+const blankEv = () => ({
+  id:null,eventType:"",eventName:"",eventDate:"",startTime:"",endTime:"",
+  clientName:"",email:"",phone:"",address:"",
+  venueName:"",venueAddress:"",venueCity:"",venueState:"",venueZip:"",venueContact:"",venuePhone:"",guestCount:"",
+  timeline:[],
+  firstDanceSong:"",firstDanceArtist:"",fatherDaughterSong:"",fatherDaughterArtist:"",
+  motherSonSong:"",motherSonArtist:"",partyEntranceSong:"",partyEntranceArtist:"",
+  grandEntranceSong:"",grandEntranceArtist:"",cakeCuttingSong:"",cakeCuttingArtist:"",
+  bouquetSong:"",bouquetArtist:"",garterSong:"",garterArtist:"",lastDanceSong:"",lastDanceArtist:"",
+  horaSong:"",horaArtist:"",openingSong:"",openingArtist:"",
+  candleLighting:Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
+  vibes:[],mustPlay:[{song:"",artist:""}],doNotPlay:[{song:"",artist:""}],
+  specialRequests:"",adminNotes:"",status:"draft",
+});
+
+// ── DB row mappers ─────────────────────────────
+const toRow = ev => ({
+  id:ev.id, user_id:ev.userId, event_type:ev.eventType, event_name:ev.eventName,
+  event_date:ev.eventDate||null, start_time:ev.startTime, end_time:ev.endTime,
+  client_name:ev.clientName, email:ev.email, phone:ev.phone, address:ev.address,
+  venue_name:ev.venueName, venue_address:ev.venueAddress, venue_city:ev.venueCity,
+  venue_state:ev.venueState, venue_zip:ev.venueZip, venue_contact:ev.venueContact,
+  venue_phone:ev.venuePhone, guest_count:ev.guestCount, timeline:ev.timeline,
+  candle_lighting:ev.candleLighting, vibes:ev.vibes, must_play:ev.mustPlay, do_not_play:ev.doNotPlay,
+  first_dance_song:ev.firstDanceSong, first_dance_artist:ev.firstDanceArtist,
+  father_daughter_song:ev.fatherDaughterSong, father_daughter_artist:ev.fatherDaughterArtist,
+  mother_son_song:ev.motherSonSong, mother_son_artist:ev.motherSonArtist,
+  party_entrance_song:ev.partyEntranceSong, party_entrance_artist:ev.partyEntranceArtist,
+  grand_entrance_song:ev.grandEntranceSong, grand_entrance_artist:ev.grandEntranceArtist,
+  cake_cutting_song:ev.cakeCuttingSong, cake_cutting_artist:ev.cakeCuttingArtist,
+  bouquet_song:ev.bouquetSong, bouquet_artist:ev.bouquetArtist,
+  garter_song:ev.garterSong, garter_artist:ev.garterArtist,
+  last_dance_song:ev.lastDanceSong, last_dance_artist:ev.lastDanceArtist,
+  hora_song:ev.horaSong, hora_artist:ev.horaArtist,
+  opening_song:ev.openingSong, opening_artist:ev.openingArtist,
+  special_requests:ev.specialRequests, admin_notes:ev.adminNotes, status:ev.status,
+});
+
+const fromRow = r => !r ? null : ({
+  id:r.id, userId:r.user_id, eventType:r.event_type, eventName:r.event_name,
+  eventDate:r.event_date, startTime:r.start_time, endTime:r.end_time,
+  clientName:r.client_name||"", email:r.email||"", phone:r.phone||"", address:r.address||"",
+  venueName:r.venue_name||"", venueAddress:r.venue_address||"", venueCity:r.venue_city||"",
+  venueState:r.venue_state||"", venueZip:r.venue_zip||"", venueContact:r.venue_contact||"",
+  venuePhone:r.venue_phone||"", guestCount:r.guest_count||"",
+  timeline:r.timeline||[],
+  candleLighting:r.candle_lighting||Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
+  vibes:r.vibes||[], mustPlay:r.must_play||[{song:"",artist:""}], doNotPlay:r.do_not_play||[{song:"",artist:""}],
+  firstDanceSong:r.first_dance_song||"", firstDanceArtist:r.first_dance_artist||"",
+  fatherDaughterSong:r.father_daughter_song||"", fatherDaughterArtist:r.father_daughter_artist||"",
+  motherSonSong:r.mother_son_song||"", motherSonArtist:r.mother_son_artist||"",
+  partyEntranceSong:r.party_entrance_song||"", partyEntranceArtist:r.party_entrance_artist||"",
+  grandEntranceSong:r.grand_entrance_song||"", grandEntranceArtist:r.grand_entrance_artist||"",
+  cakeCuttingSong:r.cake_cutting_song||"", cakeCuttingArtist:r.cake_cutting_artist||"",
+  bouquetSong:r.bouquet_song||"", bouquetArtist:r.bouquet_artist||"",
+  garterSong:r.garter_song||"", garterArtist:r.garter_artist||"",
+  lastDanceSong:r.last_dance_song||"", lastDanceArtist:r.last_dance_artist||"",
+  horaSong:r.hora_song||"", horaArtist:r.hora_artist||"",
+  openingSong:r.opening_song||"", openingArtist:r.opening_artist||"",
+  specialRequests:r.special_requests||"", adminNotes:r.admin_notes||"",
+  status:r.status||"draft", createdAt:r.created_at, updatedAt:r.updated_at,
+});
+
+// ── Shared tiny components ─────────────────────
+const Spin    = () => <div style={{display:"flex",justifyContent:"center",padding:"60px"}}><div className="spin"/></div>;
+const Toggle  = ({on,set}) => <div className="tog" onClick={()=>set(!on)}><div className="tog-track" style={{background:on?"var(--green)":"var(--border2)"}}/><div className="tog-thumb" style={{left:on?"23px":"3px"}}/></div>;
+const Modal   = ({close,children,w=460}) => <div className="overlay" onClick={close}><div onClick={e=>e.stopPropagation()} className="card fade" style={{maxWidth:w,width:"100%",boxShadow:"0 24px 60px rgba(0,0,0,.22)",maxHeight:"90vh",overflowY:"auto"}}>{children}</div></div>;
+const ErrBox  = ({msg}) => msg ? <div style={{background:"var(--rbg)",border:"1.5px solid var(--rbdr)",borderRadius:"var(--r)",padding:"10px 14px",color:"var(--red)",fontSize:"13px",marginBottom:"14px"}}>{msg}</div> : null;
+const OkBox   = ({msg}) => msg ? <div style={{padding:"12px 16px",background:"var(--gbg2)",border:"1.5px solid var(--gbdr2)",borderRadius:"var(--r)",fontSize:"13px",color:"var(--green)",fontWeight:500}}>{msg}</div> : null;
+
+function CopyBtn({text,label="Copy"}){
+  const[ok,setOk]=useState(false);
+  return <button className="btn b-out" style={{padding:"6px 12px",fontSize:"12px"}} onClick={()=>{copy(text);setOk(true);setTimeout(()=>setOk(false),1800);}}>{ok?"✓ Copied!":label}</button>;
+}
+
+const Row = ({l,v}) => v ? <div style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:"10px",marginBottom:"8px",fontSize:"13px"}}><span style={{color:"var(--muted)"}}>{l}</span><span style={{color:"var(--ink)"}}>{v}</span></div> : null;
+const Song= ({l,s,a}) => (s||a) ? <div style={{display:"grid",gridTemplateColumns:"190px 1fr",gap:"10px",marginBottom:"8px",fontSize:"13px"}}><span style={{color:"var(--muted)"}}>{l}</span><span style={{color:"var(--ink)"}}>{s}{a&&<span style={{color:"var(--muted)"}}> — {a}</span>}</span></div> : null;
+const Sec = ({title,children}) => (
+  <div className="card" style={{marginBottom:"12px"}}>
+    <div style={{marginBottom:"12px",paddingBottom:"12px",borderBottom:"1px solid var(--border)"}}>
+      <span style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"var(--muted)"}}>{title}</span>
+    </div>
+    {children}
+  </div>
+);
+
+const Hero = ({ev}) => {
+  const m = meta(ev.eventType);
+  return (
+    <div style={{background:"var(--nav2)",borderRadius:"14px",padding:"clamp(20px,4vw,36px)",marginBottom:"18px"}} className="fade">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"12px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+          <span style={{fontSize:"34px"}}>{m.e}</span>
+          <div>
+            <p style={{fontSize:"10px",fontWeight:700,textTransform:"uppercase",letterSpacing:".12em",color:"var(--g2)",marginBottom:"4px"}}>{m.label}</p>
+            <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(20px,4vw,30px)",fontWeight:400,color:"#fff"}}>{ev.eventName||"Unnamed Event"}</h1>
+          </div>
+        </div>
+        <span className={`badge st-${ev.status||"draft"}`} style={{fontSize:"11px",padding:"5px 13px"}}>{ev.status||"draft"}</span>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"14px",marginTop:"14px",paddingTop:"14px",borderTop:"1px solid rgba(255,255,255,.1)"}}>
+        {ev.eventDate && <span style={{fontSize:"13px",color:"rgba(255,255,255,.65)"}}>{fDate(ev.eventDate)}</span>}
+        {ev.startTime && <span style={{fontSize:"13px",color:"rgba(255,255,255,.65)"}}>{f12(ev.startTime)}{ev.endTime&&` – ${f12(ev.endTime)}`}</span>}
+        {ev.venueName && <span style={{fontSize:"13px",color:"rgba(255,255,255,.65)"}}>{ev.venueName}{ev.venueCity&&`, ${ev.venueCity}`}</span>}
+        {ev.guestCount && <span style={{fontSize:"13px",color:"rgba(255,255,255,.65)"}}>{ev.guestCount} guests</span>}
+      </div>
+    </div>
+  );
+};
+
+const TopNav = ({title,back,right,badge}) => (
+  <header style={{background:"var(--nav)",padding:"0 24px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
+    <div style={{maxWidth:"960px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"58px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+        {back && <button className="btn b-nav" onClick={back} style={{padding:"6px 10px",fontSize:"19px",lineHeight:1}}>←</button>}
+        <span style={{fontFamily:"var(--ff)",fontSize:"17px",color:"#fff",fontWeight:400}}>{title}</span>
+        {badge && <span className="adm">{badge}</span>}
+      </div>
+      <div>{right}</div>
+    </div>
+  </header>
+);
+
+// ════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════
+// AUTH — login only (accounts created by admin)
+// ════════════════════════════════════════════════
+function Auth({onLogin}){
+  const[view,setView]       =useState("login"); // "login" | "forgot" | "sent"
+  const[email,setEmail]     =useState("");
+  const[pw,setPw]           =useState("");
+  const[err,setErr]         =useState("");
+  const[busy,setBusy]       =useState(false);
+
+  const go = async () => {
+    if(!email||!pw) return;
+    setErr(""); setBusy(true);
+    const{data,error}=await DB.auth.signInWithPassword({email,password:pw});
+    if(error){setErr("Incorrect email or password. Please try again.");setBusy(false);return;}
+    const{data:prof}=await DB.from("dj_profiles").select("*").eq("id",data.user.id).single();
+    onLogin({...data.user,...(prof||{})});
+  };
+
+  const sendReset = async () => {
+    if(!email) return;
+    setErr(""); setBusy(true);
+    const redirectTo = window.location.origin + window.location.pathname;
+    await DB.auth.resetPasswordForEmail(email, {redirectTo});
+    setBusy(false);
+    setView("sent");
+  };
+
+  // ── Shared shell ──
+  const Shell = ({children}) => (
+    <div style={{minHeight:"100vh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 59px,rgba(255,255,255,.018) 60px),repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(255,255,255,.018) 60px)",pointerEvents:"none"}}/>
+      <div className="fade" style={{width:"100%",maxWidth:"400px",position:"relative"}}>
+        <div style={{textAlign:"center",marginBottom:"48px"}}>
+          <p style={{fontFamily:"var(--ff)",fontSize:"10px",fontWeight:400,letterSpacing:".4em",textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:"16px"}}>Private Client Portal</p>
+          <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(26px,5vw,36px)",fontWeight:400,color:"#fff",letterSpacing:"-.01em",lineHeight:1.1}}>{BRAND}</h1>
+          <div style={{width:"36px",height:"1px",background:"rgba(255,255,255,.2)",margin:"16px auto 0"}}/>
+        </div>
+        {children}
+        <p style={{textAlign:"center",marginTop:"24px",fontSize:"12px",color:"rgba(255,255,255,.2)",lineHeight:1.8}}>
+          Need access? Contact your DJ at<br/>
+          <span style={{color:"rgba(255,255,255,.4)"}}>bryon@yourweddingsdj.com</span>
+        </p>
+      </div>
+    </div>
+  );
+
+  if(view==="sent") return (
+    <Shell>
+      <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",padding:"clamp(28px,5vw,40px)",textAlign:"center"}}>
+        <h2 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"#fff",marginBottom:"10px"}}>Check your inbox</h2>
+        <p style={{fontSize:"13px",color:"rgba(255,255,255,.45)",marginBottom:"24px",lineHeight:1.7}}>
+          If <strong style={{color:"rgba(255,255,255,.7)"}}>{email}</strong> is registered, you'll receive a password reset link shortly.
+        </p>
+        <button className="btn b-nav" onClick={()=>{setView("login");setErr("");}} style={{width:"100%",justifyContent:"center",padding:"11px",fontSize:"13px"}}>
+          ← Back to Sign In
+        </button>
+      </div>
+    </Shell>
+  );
+
+  if(view==="forgot") return (
+    <Shell>
+      <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",padding:"clamp(28px,5vw,40px)"}}>
+        <h2 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"#fff",marginBottom:"4px"}}>Reset password</h2>
+        <p style={{fontSize:"13px",color:"rgba(255,255,255,.35)",marginBottom:"26px"}}>Enter your email and we'll send a reset link</p>
+        <ErrBox msg={err}/>
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          <div className="fg">
+            <label className="lbl">Email Address</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={e=>e.key==="Enter"&&sendReset()} autoComplete="email"/>
+          </div>
+          <button className="btn b-gold" onClick={sendReset} disabled={busy||!email} style={{width:"100%",justifyContent:"center",padding:"13px",fontSize:"14px",fontWeight:600,marginTop:"4px"}}>
+            {busy?<span style={{animation:"pulse 1s infinite"}}>Sending…</span>:"Send Reset Link →"}
+          </button>
+          <button onClick={()=>{setView("login");setErr("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.3)",fontSize:"13px",cursor:"pointer",padding:"4px 0",textAlign:"center"}}>
+            ← Back to Sign In
+          </button>
+        </div>
+      </div>
+    </Shell>
+  );
+
+  return (
+    <Shell>
+      <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",padding:"clamp(28px,5vw,40px)"}}>
+        <h2 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"#fff",marginBottom:"4px"}}>Welcome back</h2>
+        <p style={{fontSize:"13px",color:"rgba(255,255,255,.35)",marginBottom:"26px"}}>Sign in to your event portal</p>
+        <ErrBox msg={err}/>
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          <div className="fg">
+            <label className="lbl">Email Address</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={e=>e.key==="Enter"&&go()} autoComplete="email"/>
+          </div>
+          <div className="fg">
+            <label className="lbl" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              Password
+              <button onClick={()=>{setErr("");setView("forgot");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.3)",fontSize:"11px",cursor:"pointer",padding:0,fontFamily:"var(--fb)",letterSpacing:".02em"}}>
+                Forgot password?
+              </button>
+            </label>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&go()} autoComplete="current-password"/>
+          </div>
+          <button className="btn b-gold" onClick={go} disabled={busy||!email||!pw} style={{width:"100%",justifyContent:"center",padding:"13px",fontSize:"14px",fontWeight:600,marginTop:"4px"}}>
+            {busy?<span style={{animation:"pulse 1s infinite"}}>Signing in…</span>:"Sign In →"}
+          </button>
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+// ════════════════════════════════════════════════
+// RESET PASSWORD (Supabase recovery redirect)
+// ════════════════════════════════════════════════
+function ResetPassword({onDone}){
+  const[pw,setPw]   =useState("");
+  const[pw2,setPw2] =useState("");
+  const[err,setErr] =useState("");
+  const[ok,setOk]   =useState(false);
+  const[busy,setBusy]=useState(false);
+
+  const submit = async () => {
+    if(!pw||!pw2){setErr("Please fill in both fields.");return;}
+    if(pw!==pw2){setErr("Passwords don't match.");return;}
+    if(pw.length<8){setErr("Password must be at least 8 characters.");return;}
+    setErr(""); setBusy(true);
+    const{error}=await DB.auth.updateUser({password:pw});
+    setBusy(false);
+    if(error){setErr(error.message||"Something went wrong. Try again.");return;}
+    setOk(true);
+    setTimeout(()=>onDone(),2200);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#000",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 59px,rgba(255,255,255,.018) 60px),repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(255,255,255,.018) 60px)",pointerEvents:"none"}}/>
+      <div className="fade" style={{width:"100%",maxWidth:"400px",position:"relative"}}>
+        <div style={{textAlign:"center",marginBottom:"48px"}}>
+          <p style={{fontFamily:"var(--ff)",fontSize:"10px",fontWeight:400,letterSpacing:".4em",textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:"16px"}}>Private Client Portal</p>
+          <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(26px,5vw,36px)",fontWeight:400,color:"#fff",letterSpacing:"-.01em",lineHeight:1.1}}>{BRAND}</h1>
+          <div style={{width:"36px",height:"1px",background:"rgba(255,255,255,.2)",margin:"16px auto 0"}}/>
+        </div>
+        {ok ? (
+          <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",padding:"clamp(28px,5vw,40px)",textAlign:"center"}}>
+            <div style={{fontSize:"36px",marginBottom:"16px"}}>✅</div>
+            <h2 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"#fff",marginBottom:"8px"}}>Password updated</h2>
+            <p style={{fontSize:"13px",color:"rgba(255,255,255,.4)"}}>Signing you in…</p>
+          </div>
+        ) : (
+          <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.09)",borderRadius:"16px",padding:"clamp(28px,5vw,40px)"}}>
+            <h2 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"#fff",marginBottom:"4px"}}>Set new password</h2>
+            <p style={{fontSize:"13px",color:"rgba(255,255,255,.35)",marginBottom:"26px"}}>Choose a strong password for your account</p>
+            <ErrBox msg={err}/>
+            <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+              <div className="fg">
+                <label className="lbl">New Password</label>
+                <input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Min. 8 characters" autoComplete="new-password"/>
+              </div>
+              <div className="fg">
+                <label className="lbl">Confirm Password</label>
+                <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()} autoComplete="new-password"/>
+              </div>
+              <button className="btn b-gold" onClick={submit} disabled={busy||!pw||!pw2} style={{width:"100%",justifyContent:"center",padding:"13px",fontSize:"14px",fontWeight:600,marginTop:"4px"}}>
+                {busy?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:"Update Password →"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// CLIENT DASHBOARD
+// ════════════════════════════════════════════════
+function Dashboard({user,events,onNew,onView,onEdit,onDelete,onLogout}){
+  const[del,setDel]=useState(null);
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)"}}>
+      <header style={{background:"var(--nav)",padding:"0 28px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
+        <div style={{maxWidth:"1140px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"60px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}><span style={{fontFamily:"var(--ff)",fontSize:"18px",color:"#fff",fontWeight:400}}>{BRAND}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+            <span style={{fontSize:"13px",color:"rgba(255,255,255,.5)"}}>Hi, {(user.name||user.email||"").split(" ")[0]}</span>
+            <button className="btn b-nav" onClick={onLogout} style={{padding:"6px 12px"}}>Sign Out</button>
+          </div>
+        </div>
+      </header>
+      <main style={{maxWidth:"1140px",margin:"0 auto",padding:"36px 28px"}}>
+        {/* Banner */}
+        <div style={{background:"var(--nav2)",borderRadius:"14px",padding:"clamp(24px,4vw,44px)",marginBottom:"36px"}} className="fade">
+          <p style={{fontSize:"10.5px",fontWeight:700,letterSpacing:".13em",textTransform:"uppercase",color:"var(--g2)",marginBottom:"10px"}}>Event Planning Portal</p>
+          <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(24px,4vw,42px)",fontWeight:400,color:"#fff",lineHeight:1.2,marginBottom:"12px"}}>Your Events</h1>
+          <p style={{fontSize:"14px",color:"rgba(255,255,255,.58)",marginBottom:"26px",maxWidth:"480px",lineHeight:1.7}}>Fill in your event details — timeline, songs, venue info — so nothing gets missed.</p>
+          <button className="btn b-gold" onClick={onNew} style={{fontSize:"14px",padding:"11px 26px"}}>+ Plan New Event</button>
+        </div>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}}>
+          <h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>Your Events <span style={{fontFamily:"var(--fb)",fontSize:"14px",fontWeight:400,color:"var(--muted)"}}>({events.length})</span></h2>
+          {events.length>0&&<button className="btn b-out" onClick={onNew} style={{padding:"8px 16px",fontSize:"13px"}}>+ Add Event</button>}
+        </div>
+        {/* Cards */}
+        {events.length===0 ? (
+          <div style={{textAlign:"center",padding:"80px 24px",background:"var(--white)",borderRadius:"14px",border:"1.5px solid var(--border)"}}>
+            <p style={{fontFamily:"var(--ff)",fontSize:"20px",color:"var(--ink)",marginBottom:"8px"}}>No events on file yet</p>
+            <p style={{fontSize:"14px",color:"var(--muted)",marginBottom:"22px"}}>Add your first event to get started.</p>
+            <button className="btn b-gold" onClick={onNew}>Plan My First Event</button>
+          </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"16px"}}>
+            {events.map(ev=>{const m=meta(ev.eventType);return(
+              <div key={ev.id} className="card fade" style={{cursor:"pointer",transition:"all .18s",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,.1)";e.currentTarget.style.borderColor="var(--gold)";}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.06)";e.currentTarget.style.borderColor="var(--border)";}}
+                onClick={()=>onView(ev.id)}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"11px"}}>
+                    <div style={{width:"42px",height:"42px",borderRadius:"10px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"20px",flexShrink:0}}>{m.e}</div>
+                    <div>
+                      <div style={{fontSize:"10.5px",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",fontWeight:600}}>{m.label}</div>
+                      <div style={{fontFamily:"var(--ff)",fontSize:"17px",color:"var(--ink)",lineHeight:1.25,marginTop:"2px"}}>{ev.eventName||"Unnamed Event"}</div>
+                    </div>
+                  </div>
+                  <span className={`badge st-${ev.status||"draft"}`}>{ev.status||"draft"}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:"4px",marginBottom:"14px",fontSize:"12.5px",color:"var(--body)"}}>
+                  {ev.eventDate&&<div>{fDate(ev.eventDate)}{ev.startTime&&` · ${f12(ev.startTime)}`}</div>}
+                  {ev.venueName&&<div>{ev.venueName}{ev.venueCity&&`, ${ev.venueCity}`}</div>}
+                  {ev.guestCount&&<div>{ev.guestCount} guests</div>}
+                </div>
+                <div style={{display:"flex",gap:"8px",borderTop:"1px solid var(--border)",paddingTop:"12px"}} onClick={e=>e.stopPropagation()}>
+                  <button className="btn b-out" onClick={()=>onView(ev.id)} style={{flex:1,justifyContent:"center",padding:"7px",fontSize:"12px"}}>View</button>
+                  <button className="btn b-out" onClick={()=>onEdit(ev.id)} style={{flex:1,justifyContent:"center",padding:"7px",fontSize:"12px"}}>Edit</button>
+                  <button className="btn b-ghost" onClick={()=>setDel(ev.id)} style={{padding:"7px 10px",color:"var(--red)",fontSize:"12px"}}>Remove</button>
+                </div>
+              </div>
+            );})}
+          </div>
+        )}
+      </main>
+      {del&&<Modal close={()=>setDel(null)} w={360}>
+        <h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:"10px"}}>Delete Event?</h3>
+        <p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"22px"}}>This cannot be undone.</p>
+        <div style={{display:"flex",gap:"10px"}}><button className="btn b-out" onClick={()=>setDel(null)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-danger" onClick={()=>{onDelete(del);setDel(null);}} style={{flex:1,justifyContent:"center"}}>Delete</button></div>
+      </Modal>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// EVENT FORM — 7 steps
+// ════════════════════════════════════════════════
+function StepHeader({title,sub}){return(<div><div style={{width:32,height:3,background:"var(--gold)",borderRadius:2,marginBottom:14}}/><h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:4}}>{title}</h2><p style={{fontSize:"13px",color:"var(--muted)",marginBottom:22,lineHeight:1.65}}>{sub}</p></div>);}
+
+function Step1({d,u}){return(<div className="fade">
+  <StepHeader title="What kind of event is this?" sub="Select your event type to get started."/>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:"10px",marginBottom:"28px"}}>
+    {ET.map(t=>{const on=d.eventType===t.id;return(
+      <div key={t.id} onClick={()=>u({eventType:t.id,timeline:(TL[t.id]||[]).map(l=>({label:l,time:"",note:""}))})}
+        style={{padding:"16px 12px",borderRadius:"10px",cursor:"pointer",textAlign:"center",transition:"all .16s",border:`1.5px solid ${on?"var(--gold)":"var(--border)"}`,background:on?"var(--gbg)":"var(--white)",boxShadow:on?"0 0 0 3px rgba(200,149,42,.12)":"none"}}>
+        <div style={{fontSize:"24px",marginBottom:"6px"}}>{t.e}</div>
+        <div style={{fontSize:"12px",fontWeight:on?600:400,color:on?"var(--gold)":"var(--body)",lineHeight:1.3}}>{t.label}</div>
+      </div>
+    );})}
+  </div>
+  <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+    <div className="fg"><label className="lbl">Event Name *</label><input value={d.eventName} onChange={e=>u({eventName:e.target.value})} placeholder="My Event"/></div>
+    <div className="g3">
+      <div className="fg"><label className="lbl">Date *</label><input type="date" value={d.eventDate} onChange={e=>u({eventDate:e.target.value})}/></div>
+      <div className="fg"><label className="lbl">Start Time</label><input type="time" value={d.startTime} onChange={e=>u({startTime:e.target.value})}/></div>
+      <div className="fg"><label className="lbl">End Time</label><input type="time" value={d.endTime} onChange={e=>u({endTime:e.target.value})}/></div>
+    </div>
+  </div>
+</div>);}
+
+function Step2({d,u}){return(<div className="fade">
+  <StepHeader title="Contact Information" sub="How can we reach you before, during, and after the event?"/>
+  <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+    <div className="g2"><div className="fg"><label className="lbl">Full Name *</label><input value={d.clientName} onChange={e=>u({clientName:e.target.value})} placeholder="Your name"/></div><div className="fg"><label className="lbl">Phone *</label><input type="tel" value={d.phone} onChange={e=>u({phone:e.target.value})} placeholder="(555) 000-0000"/></div></div>
+    <div className="fg"><label className="lbl">Email *</label><input type="email" value={d.email} onChange={e=>u({email:e.target.value})} placeholder="you@example.com"/></div>
+    <div className="fg"><label className="lbl">Address</label><input value={d.address} onChange={e=>u({address:e.target.value})} placeholder="Street, City, State, ZIP"/></div>
+    <div style={{padding:"12px 14px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"var(--r)",fontSize:"13px",color:"var(--body)"}}>Have a second contact (co-host, coordinator)? Add them in Special Requests at the end.</div>
+  </div>
+</div>);}
+
+function Step3({d,u}){return(<div className="fade">
+  <StepHeader title="Venue Details" sub="Where is the event being held? This helps with setup and vendor coordination."/>
+  <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+    <div className="g2"><div className="fg"><label className="lbl">Venue Name *</label><input value={d.venueName} onChange={e=>u({venueName:e.target.value})} placeholder="The Grand Ballroom"/></div><div className="fg"><label className="lbl">Guest Count</label><input type="number" min="1" value={d.guestCount} onChange={e=>u({guestCount:e.target.value})} placeholder="150"/></div></div>
+    <div className="fg"><label className="lbl">Street Address</label><input value={d.venueAddress} onChange={e=>u({venueAddress:e.target.value})} placeholder="123 Main Street"/></div>
+    <div className="g3"><div className="fg"><label className="lbl">City</label><input value={d.venueCity} onChange={e=>u({venueCity:e.target.value})}/></div><div className="fg"><label className="lbl">State</label><input value={d.venueState} onChange={e=>u({venueState:e.target.value})} maxLength={2}/></div><div className="fg"><label className="lbl">ZIP</label><input value={d.venueZip} onChange={e=>u({venueZip:e.target.value})}/></div></div>
+    <div className="g2"><div className="fg"><label className="lbl">Venue Coordinator</label><input value={d.venueContact} onChange={e=>u({venueContact:e.target.value})}/></div><div className="fg"><label className="lbl">Coordinator Phone</label><input type="tel" value={d.venuePhone} onChange={e=>u({venuePhone:e.target.value})}/></div></div>
+  </div>
+</div>);}
+
+function Step4({d,u}){
+  const set=(i,k,v)=>{const t=[...d.timeline];t[i]={...t[i],[k]:v};u({timeline:t});};
+  return(<div className="fade">
+    <StepHeader title="Event Timeline" sub="Walk us through the flow of your event. Times can be approximate."/>
+    {d.timeline.map((item,i)=>(
+      <div key={i} className="tl">
+        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Time</label>}<input type="time" value={item.time} onChange={e=>set(i,"time",e.target.value)} style={{padding:"8px 9px",fontSize:"13px"}}/></div>
+        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Milestone</label>}<input value={item.label} onChange={e=>set(i,"label",e.target.value)} placeholder="What's happening?" style={{fontSize:"13px"}}/></div>
+        <div className="fg">{i===0&&<label className="lbl" style={{fontSize:"9px"}}>Notes</label>}<input value={item.note} onChange={e=>set(i,"note",e.target.value)} placeholder="Details…" style={{fontSize:"13px"}}/></div>
+        <button className="btn b-ghost" onClick={()=>u({timeline:d.timeline.filter((_,j)=>j!==i)})} style={{padding:"7px",fontSize:"17px",color:"var(--red)",lineHeight:1,alignSelf:"flex-end"}}>×</button>
+      </div>
+    ))}
+    <button className="btn b-out" onClick={()=>u({timeline:[...d.timeline,{label:"",time:"",note:""}]})} style={{fontSize:"13px"}}>+ Add Item</button>
+  </div>);}
+
+function Step5({d,u}){
+  const SR=({label,sk,ak})=>(<div className="sc"><p className="sc-lbl">{label}</p><div className="g2"><div className="fg"><label className="lbl">Song Title</label><input value={d[sk]||""} onChange={e=>u({[sk]:e.target.value})} placeholder="Leave blank for a suggestion…"/></div><div className="fg"><label className="lbl">Artist</label><input value={d[ak]||""} onChange={e=>u({[ak]:e.target.value})} placeholder="Artist name…"/></div></div></div>);
+  const t=d.eventType;
+  return(<div className="fade">
+    <StepHeader title="Music Planning" sub="Fill in the songs you've chosen. Leave any field blank if you haven't decided yet."/>
+    <div style={{display:"flex",flexDirection:"column"}}>
+      {t==="wedding"&&<><SR label="First Dance" sk="firstDanceSong" ak="firstDanceArtist"/><SR label="Father / Daughter Dance" sk="fatherDaughterSong" ak="fatherDaughterArtist"/><SR label="Mother / Son Dance" sk="motherSonSong" ak="motherSonArtist"/><SR label="Bridal Party Entrance" sk="partyEntranceSong" ak="partyEntranceArtist"/><SR label="Grand Entrance (Couple)" sk="grandEntranceSong" ak="grandEntranceArtist"/><SR label="Cake Cutting" sk="cakeCuttingSong" ak="cakeCuttingArtist"/><SR label="Bouquet Toss" sk="bouquetSong" ak="bouquetArtist"/><SR label="Garter" sk="garterSong" ak="garterArtist"/><SR label="Last Dance" sk="lastDanceSong" ak="lastDanceArtist"/></>}
+      {(t==="bar_mitzvah"||t==="bat_mitzvah")&&<>
+        <SR label="Grand Entrance" sk="grandEntranceSong" ak="grandEntranceArtist"/>
+        <SR label="Hora" sk="horaSong" ak="horaArtist"/>
+        <SR label="Last Dance" sk="lastDanceSong" ak="lastDanceArtist"/>
+        <div className="sc"><p className="sc-lbl">Candle Lighting Ceremony</p>
+          <p style={{fontSize:"12px",color:"var(--muted)",marginBottom:"12px"}}>Up to 13 candles — enter the honoree and their song.</p>
+          <div style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 1fr",gap:"7px",marginBottom:"6px"}}>
+            <div/><label className="lbl" style={{fontSize:"9px"}}>Honoree</label><label className="lbl" style={{fontSize:"9px"}}>Song</label><label className="lbl" style={{fontSize:"9px"}}>Artist</label>
+          </div>
+          {d.candleLighting.map((c,i)=>{const upd=(k,v)=>{const cl=[...d.candleLighting];cl[i]={...cl[i],[k]:v};u({candleLighting:cl});};return(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"28px 1fr 1fr 1fr",gap:"7px",alignItems:"center",marginBottom:"7px"}}>
+              <div style={{textAlign:"center",fontFamily:"var(--ff)",fontSize:"15px",color:"var(--gold)",fontWeight:600}}>{i+1}</div>
+              <input value={c.honoree} onChange={e=>upd("honoree",e.target.value)} placeholder="Name…" style={{fontSize:"12px"}}/>
+              <input value={c.song}    onChange={e=>upd("song",e.target.value)}    placeholder="Song…" style={{fontSize:"12px"}}/>
+              <input value={c.artist}  onChange={e=>upd("artist",e.target.value)}  placeholder="Artist…" style={{fontSize:"12px"}}/>
+            </div>
+          );})}
+        </div>
+      </>}
+      {t==="school_dance"&&<><SR label="Grand Entrance" sk="grandEntranceSong" ak="grandEntranceArtist"/><SR label="Coronation Song" sk="openingSong" ak="openingArtist"/><SR label="Last Dance" sk="lastDanceSong" ak="lastDanceArtist"/></>}
+      {(t==="birthday"||t==="sweet_16"||t==="corporate"||t==="other")&&<>
+        <SR label="Grand Entrance" sk="grandEntranceSong" ak="grandEntranceArtist"/>
+        {(t==="birthday"||t==="sweet_16")&&<SR label="Cake Cutting" sk="cakeCuttingSong" ak="cakeCuttingArtist"/>}
+        <SR label="Opening Song" sk="openingSong" ak="openingArtist"/>
+        <SR label="Last Dance" sk="lastDanceSong" ak="lastDanceArtist"/>
+      </>}
+      {!t&&<div style={{textAlign:"center",padding:"50px 24px",background:"var(--panel)",borderRadius:"10px",border:"1.5px dashed var(--border)",color:"var(--muted)",fontSize:"13px"}}>← Select an event type in Step 1 to unlock music planning</div>}
+    </div>
+  </div>);}
+
+function Step6({d,u}){
+  const updArr=(arr,i,k,v)=>{const a=[...d[arr]];a[i]={...a[i],[k]:v};u({[arr]:a});};
+  const addArr=arr=>u({[arr]:[...d[arr],{song:"",artist:""}]});
+  const remArr=(arr,i)=>u({[arr]:d[arr].filter((_,j)=>j!==i)});
+  const tVibe=v=>u({vibes:d.vibes.includes(v)?d.vibes.filter(x=>x!==v):[...d.vibes,v]});
+  const SongList=({arr,icon,title})=>(
+    <div style={{marginBottom:"24px"}}>
+      <label className="lbl" style={{display:"block",marginBottom:"10px"}}>{icon?`${icon} `:""}{title}</label>
+      {d[arr].map((item,i)=>(
+        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 32px",gap:"8px",alignItems:"center",marginBottom:"8px"}}>
+          <input value={item.song} onChange={e=>updArr(arr,i,"song",e.target.value)} placeholder="Song title…"/>
+          <input value={item.artist} onChange={e=>updArr(arr,i,"artist",e.target.value)} placeholder="Artist…"/>
+          <button className="btn b-ghost" onClick={()=>remArr(arr,i)} disabled={d[arr].length===1} style={{padding:"8px",fontSize:"16px",color:"var(--red)",lineHeight:1}}>×</button>
+        </div>
+      ))}
+      <button className="btn b-out" onClick={()=>addArr(arr)} style={{fontSize:"12px",padding:"7px 13px"}}>+ Add Song</button>
+    </div>
+  );
+  return(<div className="fade">
+    <StepHeader title="Song Requests & Preferences" sub="Must-plays, do-not-plays, and the vibe you're going for."/>
+    <div style={{marginBottom:"26px"}}>
+      <label className="lbl" style={{display:"block",marginBottom:"10px"}}>Music Vibe / Genres — check all that apply</label>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
+        {VIBES.map(v=><div key={v} className={`vc ${d.vibes.includes(v)?"vc-on":"vc-off"}`} onClick={()=>tVibe(v)}>{v}</div>)}
+      </div>
+    </div>
+    <SongList arr="mustPlay"  icon="" title="Must-Play Songs"/>
+    <SongList arr="doNotPlay" icon="" title="Do Not Play"/>
+    <div className="fg"><label className="lbl">Special Requests & Notes</label><textarea value={d.specialRequests} onChange={e=>u({specialRequests:e.target.value})} placeholder="Announcements, surprises, second contact, accessibility needs, or anything else we should know…" style={{minHeight:"100px"}}/></div>
+  </div>);}
+
+function Step7({d}){
+  const m=meta(d.eventType);
+  return(<div className="fade">
+    <StepHeader title="Review Your Submission" sub="Everything look good? Click any step above or Back to make changes."/>
+    <div style={{display:"flex",alignItems:"center",gap:"14px",padding:"18px 20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"12px",marginBottom:"18px"}}>
+      <span style={{fontSize:"28px"}}>{m.e}</span>
+      <div><p style={{fontSize:"10px",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"var(--gold)"}}>{m.label}</p><h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>{d.eventName||"Unnamed Event"}</h3></div>
+    </div>
+    <Sec title="Event Details"><Row l="Date" v={d.eventDate?fDate(d.eventDate):null}/><Row l="Time" v={d.startTime?`${f12(d.startTime)}${d.endTime?` – ${f12(d.endTime)}`:""}`:null}/><Row l="Guests" v={d.guestCount?`${d.guestCount} expected`:null}/></Sec>
+    <Sec title="Contact"><Row l="Name" v={d.clientName}/><Row l="Email" v={d.email}/><Row l="Phone" v={d.phone}/></Sec>
+    <Sec title="Venue"><Row l="Venue" v={d.venueName}/><Row l="Address" v={[d.venueAddress,d.venueCity,d.venueState,d.venueZip].filter(Boolean).join(", ")||null}/><Row l="Coordinator" v={d.venueContact}/></Sec>
+    {d.timeline.length>0&&<Sec title="Timeline">{d.timeline.map((item,i)=><Row key={i} l={item.time?f12(item.time):"—"} v={item.label+(item.note?` · ${item.note}`:"")}/>)}</Sec>}
+    <Sec title="Special Songs">
+      <Song l="Grand Entrance" s={d.grandEntranceSong} a={d.grandEntranceArtist}/>
+      {d.eventType==="wedding"&&<><Song l="First Dance" s={d.firstDanceSong} a={d.firstDanceArtist}/><Song l="Father/Daughter" s={d.fatherDaughterSong} a={d.fatherDaughterArtist}/><Song l="Mother/Son" s={d.motherSonSong} a={d.motherSonArtist}/><Song l="Bridal Party" s={d.partyEntranceSong} a={d.partyEntranceArtist}/><Song l="Cake Cutting" s={d.cakeCuttingSong} a={d.cakeCuttingArtist}/></>}
+      {(d.eventType==="bar_mitzvah"||d.eventType==="bat_mitzvah")&&<Song l="Hora" s={d.horaSong} a={d.horaArtist}/>}
+      <Song l="Opening Song" s={d.openingSong} a={d.openingArtist}/>
+      <Song l="Last Dance"   s={d.lastDanceSong} a={d.lastDanceArtist}/>
+    </Sec>
+    {d.mustPlay.some(s=>s.song)&&<Sec title="Must-Play">{d.mustPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{fontSize:"13px",marginBottom:"6px",color:"var(--ink)"}}><span style={{color:"var(--gold)"}}>♪ </span>{s.song}{s.artist&&<span style={{color:"var(--muted)"}}> — {s.artist}</span>}</div>)}</Sec>}
+    {d.vibes.length>0&&<Sec title="Vibes"><div style={{display:"flex",flexWrap:"wrap",gap:"7px"}}>{d.vibes.map(v=><span key={v} style={{padding:"4px 11px",borderRadius:"20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",color:"var(--gold)",fontSize:"12px",fontWeight:600}}>{v}</span>)}</div></Sec>}
+    {d.specialRequests&&<Sec title="Special Requests"><p style={{fontSize:"13px",color:"var(--ink)",lineHeight:1.75}}>{d.specialRequests}</p></Sec>}
+    <OkBox msg="Review the details above, then click Submit. We'll follow up to confirm everything."/>
+  </div>);}
+
+function EventForm({event,userId,onSave,onCancel}){
+  const[step,setStep]=useState(1);
+  const[data,setData]=useState(()=>event?{...blankEv(),...event}:blankEv());
+  const[saving,setSaving]=useState(false);
+  const u=useCallback(c=>setData(p=>({...p,...c})),[]);
+  const save=async draft=>{setSaving(true);await onSave({...data,status:draft?"draft":"submitted",id:data.id||uid(),userId});setSaving(false);};
+  const steps=[<Step1 d={data} u={u}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
+  return(
+    <div style={{minHeight:"100vh",background:"var(--bg)"}}>
+      <header style={{background:"var(--nav)",padding:"0 24px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
+        <div style={{maxWidth:"880px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"58px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <button className="btn b-nav" onClick={onCancel} style={{padding:"6px 10px",fontSize:"19px",lineHeight:1}}>←</button>
+            <span style={{fontFamily:"var(--ff)",fontSize:"17px",color:"#fff",fontWeight:400}}>{event?.id?"Edit Event":"New Event"}</span>
+            {data.eventName&&<span style={{fontSize:"12px",color:"rgba(255,255,255,.4)"}}>— {data.eventName}</span>}
+          </div>
+          <button className="btn b-out" onClick={()=>save(true)} disabled={saving} style={{padding:"7px 14px",fontSize:"12px",background:"rgba(255,255,255,.1)",borderColor:"rgba(255,255,255,.25)",color:"rgba(255,255,255,.85)"}}>Save Draft</button>
+        </div>
+      </header>
+      {/* Step tabs */}
+      <div style={{background:"var(--nav2)",borderBottom:"1px solid rgba(255,255,255,.1)",overflowX:"auto"}}>
+        <div style={{maxWidth:"880px",margin:"0 auto",display:"flex",minWidth:"max-content"}}>
+          {STEPS.map((s,i)=>{const n=i+1,active=n===step,done=n<step;return(
+            <div key={n} onClick={()=>setStep(n)} style={{display:"flex",alignItems:"center",gap:"6px",padding:"12px 15px",cursor:"pointer",flexShrink:0,borderBottom:`2px solid ${active?"var(--gold)":"transparent"}`,color:active?"#fff":done?"rgba(255,255,255,.55)":"rgba(255,255,255,.3)",fontSize:"13px",fontWeight:active?600:400}}>
+              <span>{done?"✓":s.i}</span><span style={{whiteSpace:"nowrap"}}>{s.l}</span>
+            </div>
+          );})}
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div style={{height:"3px",background:"var(--border)"}}><div style={{height:"100%",background:"var(--gold)",width:`${(step/7)*100}%`,transition:"width .3s ease"}}/></div>
+      {/* Content */}
+      <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
+        <div className="card" style={{boxShadow:"0 1px 8px rgba(0,0,0,.07)"}}>{steps[step-1]}</div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"18px"}}>
+          <button className="btn b-out" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?"hidden":"visible"}}>← Back</button>
+          <div style={{display:"flex",gap:"10px"}}>
+            {step<7
+              ? <button className="btn b-gold" onClick={()=>setStep(s=>s+1)} style={{padding:"10px 24px"}}>{STEPS[step].l} →</button>
+              : <><button className="btn b-out" onClick={()=>save(true)} disabled={saving}>Save as Draft</button><button className="btn b-gold" onClick={()=>save(false)} disabled={saving} style={{padding:"10px 26px"}}>{saving?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:"Submit Event"}</button></>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// CLIENT EVENT VIEW
+// ════════════════════════════════════════════════
+function EventView({event,paySettings,payRequests,onEdit,onBack}){
+  if(!event) return null;
+  const m=meta(event.eventType);
+  const ps=paySettings||BLANK_PAY;
+  const pending=(payRequests||[]).filter(r=>r.eventId===event.id&&r.status!=="paid");
+  return(
+    <div style={{minHeight:"100vh",background:"var(--bg)"}}>
+      <TopNav title="Event Details" back={onBack} right={<button className="btn b-gold" onClick={onEdit} style={{padding:"8px 18px",fontSize:"13px"}}>Edit</button>}/>
+      <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
+        <Hero ev={event}/>
+        {/* Payment requests */}
+        {pending.length>0&&<div style={{background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"20px 24px",marginBottom:"18px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"16px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"18px",fontWeight:400,color:"var(--ink)"}}>Payment Due</h3></div>
+          {pending.map(req=>{const note=encodeURIComponent(req.label||"DJ Services");return(
+            <div key={req.id} style={{padding:"14px 16px",background:"var(--white)",border:"1.5px solid var(--pbdr)",borderRadius:"10px",marginBottom:"10px"}}>
+              <div style={{marginBottom:"12px"}}><div style={{fontSize:"18px",fontWeight:700,color:"var(--purple)"}}>${parseFloat(req.amount||0).toFixed(2)} — {req.label}</div>{req.dueDate&&<div style={{fontSize:"12px",color:"var(--muted)"}}>Due by {fShort(req.dueDate)}</div>}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                {ps.methods?.venmo&&ps.venmo&&<a href={`https://venmo.com/${ps.venmo.replace("@","")}?txn=pay&amount=${req.amount}&note=${note}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"#eaf4ff",border:"1.5px solid var(--bbdr)",borderRadius:"var(--r)",textDecoration:"none",color:"var(--blue)",fontWeight:600,fontSize:"13px"}}>Pay with Venmo — @{ps.venmo.replace("@","")}</a>}
+                {ps.methods?.cashapp&&ps.cashApp&&<a href={`https://cash.app/${ps.cashApp.startsWith("$")?ps.cashApp:"$"+ps.cashApp}/${req.amount}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"#e8f9ef",border:"1.5px solid var(--gbdr2)",borderRadius:"var(--r)",textDecoration:"none",color:"var(--green)",fontWeight:600,fontSize:"13px"}}>Pay with Cash App — {ps.cashApp.startsWith("$")?ps.cashApp:"$"+ps.cashApp}</a>}
+                {ps.methods?.zelle&&ps.zelle&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"var(--r)"}}><span style={{fontSize:"13px",fontWeight:600,color:"var(--purple)"}}>Zelle — {ps.zelle}</span><CopyBtn text={ps.zelle} label="Copy Info"/></div>}
+                {ps.methods?.paypal&&ps.paypalMe&&<a href={`https://paypal.me/${ps.paypalMe}/${req.amount}`} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:"#e8eeff",border:"1.5px solid var(--bbdr)",borderRadius:"var(--r)",textDecoration:"none",color:"#003087",fontWeight:600,fontSize:"13px"}}>Pay with PayPal</a>}
+              </div>
+            </div>
+          );})}
+        </div>}
+        <Sec title="Contact Information"><Row l="Name" v={event.clientName}/><Row l="Email" v={event.email}/><Row l="Phone" v={event.phone}/><Row l="Address" v={event.address}/></Sec>
+        <Sec title="Venue"><Row l="Venue" v={event.venueName}/><Row l="Address" v={[event.venueAddress,event.venueCity,event.venueState,event.venueZip].filter(Boolean).join(", ")||null}/><Row l="Coordinator" v={event.venueContact}/><Row l="Venue Phone" v={event.venuePhone}/></Sec>
+        {event.timeline?.length>0&&<Sec title="Timeline">{event.timeline.map((item,i)=>(<div key={i} style={{display:"flex",gap:"14px",padding:"8px 0",borderBottom:i<event.timeline.length-1?"1px solid var(--border)":"none"}}><span style={{width:"66px",flexShrink:0,color:"var(--gold)",fontSize:"12.5px",fontWeight:600}}>{item.time?f12(item.time):"—"}</span><div><div style={{fontSize:"13px",color:"var(--ink)"}}>{item.label}</div>{item.note&&<div style={{fontSize:"12px",color:"var(--muted)"}}>{item.note}</div>}</div></div>))}</Sec>}
+        <Sec title="Special Songs">
+          <Song l="Grand Entrance" s={event.grandEntranceSong} a={event.grandEntranceArtist}/>
+          {event.eventType==="wedding"&&<><Song l="First Dance" s={event.firstDanceSong} a={event.firstDanceArtist}/><Song l="Father/Daughter" s={event.fatherDaughterSong} a={event.fatherDaughterArtist}/><Song l="Mother/Son" s={event.motherSonSong} a={event.motherSonArtist}/><Song l="Bridal Party" s={event.partyEntranceSong} a={event.partyEntranceArtist}/><Song l="Cake Cutting" s={event.cakeCuttingSong} a={event.cakeCuttingArtist}/><Song l="Bouquet Toss" s={event.bouquetSong} a={event.bouquetArtist}/><Song l="Garter" s={event.garterSong} a={event.garterArtist}/></>}
+          {(event.eventType==="bar_mitzvah"||event.eventType==="bat_mitzvah")&&<Song l="Hora" s={event.horaSong} a={event.horaArtist}/>}
+          <Song l="Opening Song" s={event.openingSong} a={event.openingArtist}/>
+          <Song l="Last Dance"   s={event.lastDanceSong} a={event.lastDanceArtist}/>
+        </Sec>
+        {event.mustPlay?.some(s=>s.song)&&<Sec title="Must-Play Songs">{event.mustPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{display:"flex",gap:"7px",marginBottom:"6px",fontSize:"13px"}}><span style={{color:"var(--gold)"}}>♪</span><span style={{color:"var(--ink)"}}>{s.song}</span>{s.artist&&<span style={{color:"var(--muted)"}}>— {s.artist}</span>}</div>)}</Sec>}
+        {event.doNotPlay?.some(s=>s.song)&&<Sec title="Do Not Play">{event.doNotPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{display:"flex",gap:"7px",marginBottom:"6px",fontSize:"13px"}}><span style={{color:"var(--red)"}}>✕</span><span style={{color:"var(--ink)"}}>{s.song}</span>{s.artist&&<span style={{color:"var(--muted)"}}>— {s.artist}</span>}</div>)}</Sec>}
+        {event.vibes?.length>0&&<Sec title="Music Vibes"><div style={{display:"flex",flexWrap:"wrap",gap:"7px"}}>{event.vibes.map(v=><span key={v} style={{padding:"4px 11px",borderRadius:"20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",color:"var(--gold)",fontSize:"12px",fontWeight:600}}>{v}</span>)}</div></Sec>}
+        {event.specialRequests&&<Sec title="Special Requests"><p style={{fontSize:"13px",color:"var(--ink)",lineHeight:1.75}}>{event.specialRequests}</p></Sec>}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// ADMIN CALENDAR
+// ════════════════════════════════════════════════
+function CalendarView({events,onSelect}){
+  const[view,setView]=useState(()=>{const n=new Date();return{y:n.getFullYear(),m:n.getMonth()};});
+  const{y,m}=view;
+  const first=new Date(y,m,1).getDay();
+  const days=new Date(y,m+1,0).getDate();
+  const today=new Date().toISOString().slice(0,10);
+  const label=new Date(y,m,1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const byDate={};events.forEach(ev=>{if(ev.eventDate){if(!byDate[ev.eventDate])byDate[ev.eventDate]=[];byDate[ev.eventDate].push(ev);}});
+  const cells=[...Array(first).fill(null),...Array.from({length:days},(_,i)=>i+1)];
+  const evSt=s=>({confirmed:{bg:"var(--gbg2)",c:"var(--green)",b:"var(--gbdr2)"},submitted:{bg:"var(--bbg)",c:"var(--blue)",b:"var(--bbdr)"},draft:{bg:"#ececf2",c:"var(--muted)",b:"var(--border)"}}[s||"draft"]);
+  return(<div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
+      <button className="btn b-out" onClick={()=>setView(({y,m})=>m===0?{y:y-1,m:11}:{y,m:m-1})} style={{padding:"7px 14px",fontSize:"13px"}}>← Prev</button>
+      <h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)"}}>{label}</h3>
+      <button className="btn b-out" onClick={()=>setView(({y,m})=>m===11?{y:y+1,m:0}:{y,m:m+1})} style={{padding:"7px 14px",fontSize:"13px"}}>Next →</button>
+    </div>
+    <div className="cal-grid">
+      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=><div key={d} className="cal-hd">{d}</div>)}
+      {cells.map((day,i)=>{
+        if(!day) return <div key={`b${i}`} className="cal-cell cal-blank"/>;
+        const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const evs=byDate[ds]||[];
+        return(<div key={ds} className={`cal-cell${ds===today?" cal-today":""}`}>
+          <div style={{fontSize:"12px",fontWeight:ds===today?700:400,color:ds===today?"var(--gold)":"var(--body)",marginBottom:"3px",textAlign:"right",paddingRight:"2px"}}>{day}</div>
+          {evs.slice(0,3).map(ev=>{const st=evSt(ev.status);const m2=meta(ev.eventType);return(
+            <div key={ev.id} className="cal-ev" onClick={()=>onSelect(ev)} style={{background:st.bg,color:st.c,border:`1px solid ${st.b}`}}>{m2.e} {ev.eventName||"Event"}{ev.startTime&&<span style={{opacity:.7}}> · {f12(ev.startTime)}</span>}</div>
+          );})}
+          {evs.length>3&&<div style={{fontSize:"10px",color:"var(--muted)"}}>+{evs.length-3} more</div>}
+        </div>);
+      })}
+    </div>
+    <div style={{display:"flex",gap:"16px",marginTop:"10px",flexWrap:"wrap"}}>
+      {[["var(--gbg2)","var(--green)","var(--gbdr2)","Confirmed"],["var(--bbg)","var(--blue)","var(--bbdr)","Submitted"],["#ececf2","var(--muted)","var(--border)","Draft"]].map(([bg,c,b,l])=>(
+        <div key={l} style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:"var(--muted)"}}><div style={{width:12,height:12,borderRadius:3,background:bg,border:`1px solid ${b}`}}/>{l}</div>
+      ))}
+    </div>
+  </div>);}
+
+// PayToggle — must live OUTSIDE AdminDashboard so inputs don't reset on every keystroke
+function PayToggle({id,label,icon,desc,field,placeholder,lps,setLps,setPdirty}){
+  const on=lps.methods?.[id];
+  return(
+    <div className={`pm${on?" on":""}`}>
+      <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:on?"14px":"0"}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:"14px",fontWeight:600,color:"var(--ink)"}}>{label}</div>
+          <div style={{fontSize:"12px",color:"var(--muted)"}}>{desc}</div>
+        </div>
+        <Toggle on={!!on} set={v=>{setLps(p=>({...p,methods:{...p.methods,[id]:v}}));setPdirty(true);}}/>
+      </div>
+      {on&&(
+        <div style={{paddingTop:"12px",borderTop:"1px solid var(--gbdr)"}}>
+          <div className="fg">
+            <label className="lbl">{label} Handle / Info</label>
+            <input
+              value={lps[field]||""}
+              onChange={e=>{const v=e.target.value;setLps(p=>({...p,[field]:v}));setPdirty(true);}}
+              placeholder={placeholder}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// ADMIN DASHBOARD
+// ════════════════════════════════════════════════
+function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEvent,onSavePaySettings,onAddClient,onLogout}){
+  const[tab,setTab]=useState("calendar");
+  const[filter,setFilter]=useState({status:"all",type:"all",search:"",uid:"all"});
+  const[lps,setLps]=useState(paySettings||BLANK_PAY);
+  const[pdirty,setPdirty]=useState(false);
+  const[psaving,setPsaving]=useState(false);
+  const[cmodal,setCmodal]=useState(false);
+  const[credmodal,setCredmodal]=useState(null);
+  const[cf,setCf]=useState({name:"",email:"",password:""});
+  const[cfErr,setCfErr]=useState("");
+
+  const today=new Date().toISOString().slice(0,10);
+  const counts={total:allEvents.length,upcoming:allEvents.filter(e=>e.eventDate>=today).length,confirmed:allEvents.filter(e=>e.status==="confirmed").length,submitted:allEvents.filter(e=>e.status==="submitted").length,clients:profiles.length};
+
+  const filtered=allEvents.filter(ev=>{
+    if(filter.status!=="all"&&ev.status!==filter.status)return false;
+    if(filter.type!=="all"&&ev.eventType!==filter.type)return false;
+    if(filter.uid!=="all"&&ev.userId!==filter.uid)return false;
+    if(filter.search){const q=filter.search.toLowerCase();if(!`${ev.eventName} ${ev.clientName} ${ev.venueName}`.toLowerCase().includes(q))return false;}
+    return true;
+  });
+
+  const SBox=({l,v,bg,c})=><div style={{background:bg,borderRadius:"10px",padding:"16px 20px"}}><div style={{fontSize:"26px",fontWeight:700,color:c,fontFamily:"var(--ff)"}}>{v}</div><div style={{fontSize:"11px",color:c,opacity:.8,fontWeight:600,textTransform:"uppercase",letterSpacing:".07em",marginTop:"2px"}}>{l}</div></div>;
+  const cText=(name,email,pw)=>`Hi ${name},\n\nYour ${BRAND} event planning portal account is ready.\n\nLogin URL: ${PORTAL}\nEmail: ${email}\nPassword: ${pw}\n\nLog in to start planning your event.`;
+
+  const handleAddClient=async()=>{
+    if(!cf.name.trim()||!cf.email.trim()||!cf.password.trim()){setCfErr("All fields are required.");return;}
+    if(cf.password.length<6){setCfErr("Password must be at least 6 characters.");return;}
+    const err=await onAddClient(cf.name,cf.email,cf.password);
+    if(err){setCfErr(err);return;}
+    setCredmodal({name:cf.name,email:cf.email,password:cf.password});
+    setCmodal(false);setCf({name:"",email:"",password:""});setCfErr("");
+  };
+
+  return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
+    <header style={{background:"var(--nav)",padding:"0 28px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
+      <div style={{maxWidth:"1200px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"60px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"12px"}}><span style={{fontFamily:"var(--ff)",fontSize:"18px",color:"#fff",fontWeight:400}}>{BRAND}</span><span className="adm">Admin</span></div>
+        <button className="btn b-nav" onClick={onLogout} style={{padding:"6px 12px",fontSize:"12.5px"}}>Sign Out</button>
+      </div>
+    </header>
+    <main style={{maxWidth:"1200px",margin:"0 auto",padding:"32px 28px"}}>
+      <div style={{marginBottom:"22px"}}><h1 style={{fontFamily:"var(--ff)",fontSize:"28px",fontWeight:400,color:"var(--ink)",marginBottom:"4px"}}>Admin Dashboard</h1><p style={{fontSize:"13px",color:"var(--muted)"}}>Manage clients, events, and payments from one place.</p></div>
+
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:"10px",marginBottom:"26px"}}>
+        <SBox l="Total Events" v={counts.total}    bg="#eef1fa"      c="var(--body)"/>
+        <SBox l="Upcoming"    v={counts.upcoming}  bg="var(--gbg)"  c="var(--gold)"/>
+        <SBox l="Confirmed"   v={counts.confirmed} bg="var(--gbg2)" c="var(--green)"/>
+        <SBox l="Submitted"   v={counts.submitted} bg="var(--bbg)"  c="var(--blue)"/>
+        <SBox l="Clients"     v={counts.clients}   bg="var(--pbg)"  c="var(--purple)"/>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",borderBottom:"2px solid var(--border)",marginBottom:"22px",overflowX:"auto"}}>
+        {[["calendar","Calendar"],["list","Events"],["clients","Clients"],["payments","Payments"]].map(([t,l])=>(
+          <button key={t} className={`tab ${tab===t?"on":"off"}`} onClick={()=>setTab(t)}>{l}</button>
+        ))}
+      </div>
+
+      {/* Calendar tab */}
+      {tab==="calendar"&&<div className="card" style={{padding:"24px"}}><CalendarView events={allEvents} onSelect={onSelectEvent}/></div>}
+
+      {/* Events list tab */}
+      {tab==="list"&&<div>
+        <div style={{display:"flex",gap:"10px",marginBottom:"14px",flexWrap:"wrap"}}>
+          <input value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} placeholder="Search events…" style={{flex:1,minWidth:"180px",maxWidth:"280px"}}/>
+          <select value={filter.status} onChange={e=>setFilter(f=>({...f,status:e.target.value}))} style={{width:"150px"}}><option value="all">All Statuses</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="confirmed">Confirmed</option></select>
+          <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} style={{width:"180px"}}><option value="all">All Event Types</option>{ET.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select>
+          <select value={filter.uid} onChange={e=>setFilter(f=>({...f,uid:e.target.value}))} style={{width:"160px"}}><option value="all">All Clients</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name||p.email}</option>)}</select>
+        </div>
+        {filtered.length===0?(
+          <div style={{textAlign:"center",padding:"48px 24px",background:"var(--white)",borderRadius:"12px",border:"1.5px solid var(--border)",color:"var(--muted)"}}><p style={{fontSize:"15px",color:"var(--ink)"}}>No events match your filters.</p></div>
+        ):(
+          <div style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1.2fr 1fr 1fr 80px",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>
+              {["Event","Client","Date","Venue","Status",""].map((h,i)=><div key={i} style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--muted)"}}>{h}</div>)}
+            </div>
+            {filtered.map((ev,i)=>{const m2=meta(ev.eventType);const owner=profiles.find(p=>p.id===ev.userId);return(
+              <div key={ev.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1.2fr 1fr 1fr 80px",gap:"12px",padding:"13px 18px",borderBottom:i<filtered.length-1?"1px solid var(--border)":"none",cursor:"pointer",transition:"background .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="var(--panel)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                onClick={()=>onSelectEvent(ev)}>
+                <div style={{display:"flex",alignItems:"center",gap:"7px"}}><span style={{fontSize:"15px"}}>{m2.e}</span><div><div style={{fontSize:"13.5px",fontWeight:500,color:"var(--ink)"}}>{ev.eventName||"Unnamed"}</div><div style={{fontSize:"11px",color:"var(--muted)"}}>{m2.label}</div></div></div>
+                <div><div style={{fontSize:"13px",color:"var(--ink)"}}>{ev.clientName||owner?.name||"—"}</div><div style={{fontSize:"11px",color:"var(--muted)"}}>{ev.email||owner?.email||""}</div></div>
+                <div style={{fontSize:"13px",color:"var(--body)"}}>{ev.eventDate?fShort(ev.eventDate):"—"}{ev.startTime&&<div style={{fontSize:"11px",color:"var(--muted)"}}>{f12(ev.startTime)}</div>}</div>
+                <div style={{fontSize:"12.5px",color:"var(--body)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.venueName||"—"}{ev.venueCity&&<div style={{fontSize:"11px",color:"var(--muted)"}}>{ev.venueCity}</div>}</div>
+                <div><span className={`badge st-${ev.status||"draft"}`}>{ev.status||"draft"}</span></div>
+                <button className="btn b-gold" onClick={e=>{e.stopPropagation();onSelectEvent(ev);}} style={{padding:"5px 12px",fontSize:"12px"}}>Open</button>
+              </div>
+            );})}
+          </div>
+        )}
+      </div>}
+
+      {/* Clients tab */}
+      {tab==="clients"&&<div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px",flexWrap:"wrap",gap:"12px"}}>
+          <div><h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)",marginBottom:"2px"}}>Client Accounts</h3><p style={{fontSize:"13px",color:"var(--muted)"}}>Create accounts and send login credentials to clients.</p></div>
+          <button className="btn b-gold" onClick={()=>{setCf({name:"",email:"",password:""});setCfErr("");setCmodal(true);}} style={{padding:"9px 20px"}}>+ Add Client</button>
+        </div>
+        {profiles.length===0?(
+          <div style={{textAlign:"center",padding:"48px 24px",background:"var(--white)",borderRadius:"12px",border:"1.5px solid var(--border)",color:"var(--muted)"}}><p style={{fontFamily:"var(--ff)",fontSize:"18px",color:"var(--ink)",marginBottom:"6px"}}>No clients yet</p><button className="btn b-gold" onClick={()=>{setCf({name:"",email:"",password:""});setCfErr("");setCmodal(true);}}>Add First Client</button></div>
+        ):(
+          <div style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px",overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 180px",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>
+              {["Name","Email","Events","Actions"].map(h=><div key={h} style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--muted)"}}>{h}</div>)}
+            </div>
+            {profiles.map((p,i)=>(
+              <div key={p.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 180px",gap:"12px",padding:"13px 18px",borderBottom:i<profiles.length-1?"1px solid var(--border)":"none",alignItems:"center"}}>
+                <div style={{fontWeight:500,color:"var(--ink)",fontSize:"13.5px"}}>{p.name||"—"}</div>
+                <div style={{fontSize:"13px",color:"var(--body)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.email}</div>
+                <div style={{fontSize:"13px",color:"var(--blue)",fontWeight:600}}>{allEvents.filter(e=>e.userId===p.id).length}</div>
+                <div><button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)"})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button></div>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Add client modal */}
+        {cmodal&&<Modal close={()=>setCmodal(false)} w={440}>
+          <h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:"16px"}}>Add New Client</h3>
+          <ErrBox msg={cfErr}/>
+          <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+            <div className="fg"><label className="lbl">Full Name</label><input value={cf.name} onChange={e=>setCf(f=>({...f,name:e.target.value}))} placeholder="Client's full name"/></div>
+            <div className="fg"><label className="lbl">Email Address</label><input type="email" value={cf.email} onChange={e=>setCf(f=>({...f,email:e.target.value}))} placeholder="client@email.com"/></div>
+            <div className="fg"><label className="lbl">Temporary Password</label><input type="text" value={cf.password} onChange={e=>setCf(f=>({...f,password:e.target.value}))} placeholder="Set a temporary password"/><p style={{fontSize:"11px",color:"var(--muted)",marginTop:"2px"}}>You'll share this with them — they can change it after logging in.</p></div>
+            <div style={{display:"flex",gap:"10px",marginTop:"4px"}}><button className="btn b-out" onClick={()=>setCmodal(false)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-gold" onClick={handleAddClient} style={{flex:1,justifyContent:"center"}}>Create Account</button></div>
+          </div>
+        </Modal>}
+        {/* Credentials modal */}
+        {credmodal&&<Modal close={()=>setCredmodal(null)} w={520}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"18px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>Login Credentials</h3></div>
+          <div style={{background:"var(--panel)",border:"1.5px solid var(--border)",borderRadius:"10px",padding:"16px 18px",marginBottom:"18px",fontFamily:"monospace",fontSize:"13px",color:"var(--ink)",lineHeight:1.9}}>
+            <div><span style={{color:"var(--muted)"}}>Portal URL:</span> <strong>{PORTAL}</strong></div>
+            <div><span style={{color:"var(--muted)"}}>Email:</span>      <strong>{credmodal.email}</strong></div>
+            <div><span style={{color:"var(--muted)"}}>Password:</span>   <strong>{credmodal.password}</strong></div>
+          </div>
+          <p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"18px",lineHeight:1.6}}>Share these with <strong style={{color:"var(--ink)"}}>{credmodal.name}</strong> so they can log in and start planning their event.</p>
+          <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+            <CopyBtn text={cText(credmodal.name,credmodal.email,credmodal.password)} label="Copy Message"/>
+            <a href={`mailto:${credmodal.email}?subject=${encodeURIComponent(`Your ${BRAND} Login`)}&body=${encodeURIComponent(cText(credmodal.name,credmodal.email,credmodal.password))}`} className="btn b-gold" style={{textDecoration:"none"}}>Open in Email App</a>
+            <button className="btn b-out" onClick={()=>setCredmodal(null)}>Done</button>
+          </div>
+        </Modal>}
+      </div>}
+
+      {/* Payments tab */}
+      {tab==="payments"&&<div>
+        <div style={{marginBottom:"22px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)",marginBottom:"4px"}}>Payment Methods</h3><p style={{fontSize:"13px",color:"var(--muted)"}}>Enable each method. Clients see payment links on their event page when you add a payment request.</p></div>
+        <PayToggle id="venmo"   label="Venmo"    icon="💙" desc="Pre-filled Venmo payment link"          field="venmo"    placeholder="@YourVenmo"             lps={lps} setLps={setLps} setPdirty={setPdirty}/>
+        <PayToggle id="cashapp" label="Cash App" icon="💚" desc="Pre-filled Cash App payment link"       field="cashApp"  placeholder="$YourCashtag"           lps={lps} setLps={setLps} setPdirty={setPdirty}/>
+        <PayToggle id="zelle"   label="Zelle"    icon="💜" desc="Display Zelle info for transfer"        field="zelle"    placeholder="your@email.com or phone" lps={lps} setLps={setLps} setPdirty={setPdirty}/>
+        <PayToggle id="paypal"  label="PayPal"   icon="💙" desc="PayPal.me link for quick payments"      field="paypalMe" placeholder="YourPayPalHandle"       lps={lps} setLps={setLps} setPdirty={setPdirty}/>
+        {pdirty&&<div style={{display:"flex",justifyContent:"flex-end",marginTop:"20px"}}>
+          <button className="btn b-gold" disabled={psaving} onClick={async()=>{setPsaving(true);await onSavePaySettings(lps);setPdirty(false);setPsaving(false);}} style={{padding:"10px 28px"}}>
+            {psaving?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:"Save Payment Settings"}
+          </button>
+        </div>}
+      </div>}
+    </main>
+  </div>);}
+
+// ════════════════════════════════════════════════
+// ADMIN EVENT VIEW
+// ════════════════════════════════════════════════
+function AdminEventView({event,profiles,paySettings,payRequests,onSave,onAddPayReq,onUpdatePayReq,onBack}){
+  const[status,setStatus]=useState(event.status||"draft");
+  const[notes,setNotes]=useState(event.adminNotes||"");
+  const[saved,setSaved]=useState(false);
+  const[addingReq,setAddingReq]=useState(false);
+  const[rf,setRf]=useState({amount:"",label:"",dueDate:""});
+  const[showInvoice,setShowInvoice]=useState(false);
+  const[showContract,setShowContract]=useState(false);
+  const owner=profiles.find(p=>p.id===event.userId);
+  const myReqs=(payRequests||[]).filter(r=>r.eventId===event.id);
+  const ps=paySettings||BLANK_PAY;
+  const m=meta(event.eventType);
+  const gcal=gcalLink(event);
+
+  const saveCtrl=async()=>{await onSave({...event,status,adminNotes:notes});setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const addReq=async()=>{if(!rf.amount||!rf.label)return;await onAddPayReq({id:uid(),eventId:event.id,amount:rf.amount,label:rf.label,dueDate:rf.dueDate,status:"pending"});setAddingReq(false);setRf({amount:"",label:"",dueDate:""});};
+
+  return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
+    {showInvoice&&<InvoiceView event={event} payRequests={myReqs} onClose={()=>setShowInvoice(false)}/>}
+    {showContract&&<ContractView event={event} payRequests={myReqs} onClose={()=>setShowContract(false)}/>}
+    <TopNav title="Admin: Event Detail" back={onBack} badge="Admin"/>
+    <div style={{maxWidth:"960px",margin:"0 auto",padding:"28px 24px"}}>
+      <Hero ev={event}/>
+
+      {/* Quick action buttons */}
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"18px"}}>
+        {gcal&&<a href={gcal} target="_blank" rel="noreferrer" className="btn b-out" style={{fontSize:"13px"}}>📅 Add to Google Calendar</a>}
+        <button className="btn b-out" onClick={()=>setShowInvoice(true)} style={{fontSize:"13px"}}>🧾 Generate Invoice</button>
+        <button className="btn b-out" onClick={()=>setShowContract(true)} style={{fontSize:"13px"}}>📄 Generate Contract</button>
+      </div>
+
+      {/* Admin controls */}
+      <div style={{background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"20px 24px",marginBottom:"18px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"}}><span style={{fontSize:"16px"}}>🔐</span><span style={{fontSize:"12px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"var(--purple)"}}>Admin Controls</span></div>
+        <div style={{display:"flex",gap:"14px",flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div className="fg" style={{flex:"0 0 190px"}}>
+            <label className="lbl">Event Status</label>
+            <select value={status} onChange={e=>setStatus(e.target.value)}>
+              <option value="draft">Draft</option>
+              <option value="submitted">Submitted</option>
+              <option value="confirmed">Confirmed</option>
+            </select>
+          </div>
+          <div className="fg" style={{flex:1,minWidth:"200px"}}>
+            <label className="lbl">Admin Notes (internal — client cannot see)</label>
+            <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Internal notes…" style={{minHeight:"56px",fontSize:"13px"}}/>
+          </div>
+          <button className="btn b-purple" onClick={saveCtrl} style={{padding:"10px 20px",fontSize:"13px",flexShrink:0}}>{saved?"✓ Saved!":"Save Changes"}</button>
+        </div>
+        {owner&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid var(--pbdr)",fontSize:"12px",color:"var(--purple)",opacity:.85}}>Account: <strong>{owner.name||owner.email}</strong> ({owner.email}){event.createdAt&&` · Submitted ${fShort(event.createdAt)}`}</div>}
+      </div>
+
+      {/* Payment requests */}
+      <div style={{background:"var(--white)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"20px 24px",marginBottom:"18px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px"}}><span style={{fontSize:"16px"}}>💳</span><span style={{fontSize:"12px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"var(--purple)"}}>Payment Requests</span></div>
+          <button className="btn b-purple" onClick={()=>setAddingReq(true)} style={{padding:"6px 14px",fontSize:"12px"}}>+ Request Payment</button>
+        </div>
+        {!Object.values(ps.methods||{}).some(Boolean)&&<div style={{padding:"10px 12px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"var(--r)",fontSize:"12px",color:"#7a5c10",marginBottom:"12px"}}>⚠️ No payment methods configured yet. Go to the <strong>Payments</strong> tab to set up Venmo, Cash App, Zelle, or PayPal.</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+          {myReqs.map(r=>(
+            <div key={r.id} style={{padding:"12px 16px",background:r.status==="paid"?"var(--gbg2)":"var(--pbg)",border:`1.5px solid ${r.status==="paid"?"var(--gbdr2)":"var(--pbdr)"}`,borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px"}}>
+              <div><div style={{fontSize:"15px",fontWeight:600,color:r.status==="paid"?"var(--green)":"var(--purple)"}}>${parseFloat(r.amount||0).toFixed(2)} — {r.label}</div>{r.dueDate&&<div style={{fontSize:"11px",color:"var(--muted)"}}>Due: {fShort(r.dueDate)}</div>}</div>
+              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                {r.status!=="paid"&&<button className="btn b-green" onClick={()=>onUpdatePayReq({...r,status:"paid"})} style={{padding:"5px 12px",fontSize:"11px"}}>✓ Mark Paid</button>}
+                {r.status==="paid"&&<span style={{fontSize:"11px",color:"var(--green)",fontWeight:700}}>✓ PAID</span>}
+                <button className="btn b-danger" onClick={()=>onUpdatePayReq({...r,_delete:true})} style={{padding:"5px 10px",fontSize:"11px"}}>Remove</button>
+              </div>
+            </div>
+          ))}
+          {myReqs.length===0&&<div style={{fontSize:"13px",color:"var(--dim)",textAlign:"center",padding:"16px"}}>No payment requests yet.</div>}
+        </div>
+        {addingReq&&<div style={{marginTop:"14px",padding:"16px",background:"var(--panel)",borderRadius:"10px",border:"1.5px solid var(--border)"}}>
+          <h4 style={{fontFamily:"var(--ff)",fontSize:"17px",fontWeight:400,color:"var(--ink)",marginBottom:"12px"}}>New Payment Request</h4>
+          <div className="g2" style={{marginBottom:"12px"}}>
+            <div className="fg"><label className="lbl">Amount ($)</label><input type="number" min="0" step="0.01" value={rf.amount} onChange={e=>setRf(f=>({...f,amount:e.target.value}))} placeholder="500.00"/></div>
+            <div className="fg"><label className="lbl">Due Date</label><input type="date" value={rf.dueDate} onChange={e=>setRf(f=>({...f,dueDate:e.target.value}))}/></div>
+          </div>
+          <div className="fg" style={{marginBottom:"12px"}}><label className="lbl">Label / Description</label><input value={rf.label} onChange={e=>setRf(f=>({...f,label:e.target.value}))} placeholder="Deposit, Balance, etc."/></div>
+          <div style={{display:"flex",gap:"8px"}}><button className="btn b-out" onClick={()=>setAddingReq(false)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-purple" onClick={addReq} style={{flex:1,justifyContent:"center"}}>Add Request</button></div>
+        </div>}
+      </div>
+
+      {/* Full event details */}
+      <Sec title="Contact Information" emoji="👤"><Row l="Name" v={event.clientName}/><Row l="Email" v={event.email}/><Row l="Phone" v={event.phone}/><Row l="Address" v={event.address}/></Sec>
+      <Sec title="Venue" emoji="📍"><Row l="Venue" v={event.venueName}/><Row l="Address" v={[event.venueAddress,event.venueCity,event.venueState,event.venueZip].filter(Boolean).join(", ")||null}/><Row l="Coordinator" v={event.venueContact}/><Row l="Venue Phone" v={event.venuePhone}/></Sec>
+      {event.timeline?.length>0&&<Sec title="Event Timeline" emoji="⏱">{event.timeline.map((item,i)=>(<div key={i} style={{display:"flex",gap:"14px",padding:"8px 0",borderBottom:i<event.timeline.length-1?"1px solid var(--border)":"none"}}><span style={{width:"66px",flexShrink:0,color:"var(--gold)",fontSize:"12.5px",fontWeight:600}}>{item.time?f12(item.time):"—"}</span><div><div style={{fontSize:"13px",color:"var(--ink)"}}>{item.label}</div>{item.note&&<div style={{fontSize:"12px",color:"var(--muted)"}}>{item.note}</div>}</div></div>))}</Sec>}
+      <Sec title="Special Songs" emoji="🎵">
+        <Song l="Grand Entrance" s={event.grandEntranceSong} a={event.grandEntranceArtist}/>
+        {event.eventType==="wedding"&&<><Song l="First Dance" s={event.firstDanceSong} a={event.firstDanceArtist}/><Song l="Father/Daughter" s={event.fatherDaughterSong} a={event.fatherDaughterArtist}/><Song l="Mother/Son" s={event.motherSonSong} a={event.motherSonArtist}/><Song l="Bridal Party" s={event.partyEntranceSong} a={event.partyEntranceArtist}/><Song l="Cake Cutting" s={event.cakeCuttingSong} a={event.cakeCuttingArtist}/><Song l="Bouquet Toss" s={event.bouquetSong} a={event.bouquetArtist}/><Song l="Garter" s={event.garterSong} a={event.garterArtist}/></>}
+        {(event.eventType==="bar_mitzvah"||event.eventType==="bat_mitzvah")&&<Song l="Hora" s={event.horaSong} a={event.horaArtist}/>}
+        <Song l="Opening Song" s={event.openingSong} a={event.openingArtist}/>
+        <Song l="Last Dance"   s={event.lastDanceSong} a={event.lastDanceArtist}/>
+      </Sec>
+      {event.mustPlay?.some(s=>s.song)&&<Sec title="Must-Play Songs" emoji="🎤">{event.mustPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{display:"flex",gap:"7px",marginBottom:"6px",fontSize:"13px"}}><span style={{color:"var(--gold)"}}>♪</span><span style={{color:"var(--ink)"}}>{s.song}</span>{s.artist&&<span style={{color:"var(--muted)"}}>— {s.artist}</span>}</div>)}</Sec>}
+      {event.doNotPlay?.some(s=>s.song)&&<Sec title="Do Not Play" emoji="🚫">{event.doNotPlay.filter(s=>s.song).map((s,i)=><div key={i} style={{display:"flex",gap:"7px",marginBottom:"6px",fontSize:"13px"}}><span style={{color:"var(--red)"}}>✕</span><span style={{color:"var(--ink)"}}>{s.song}</span>{s.artist&&<span style={{color:"var(--muted)"}}>— {s.artist}</span>}</div>)}</Sec>}
+      {event.vibes?.length>0&&<Sec title="Music Vibes" emoji="🎶"><div style={{display:"flex",flexWrap:"wrap",gap:"7px"}}>{event.vibes.map(v=><span key={v} style={{padding:"4px 11px",borderRadius:"20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",color:"var(--gold)",fontSize:"12px",fontWeight:600}}>{v}</span>)}</div></Sec>}
+      {event.specialRequests&&<Sec title="Special Requests (from client)" emoji="📝"><p style={{fontSize:"13px",color:"var(--ink)",lineHeight:1.75}}>{event.specialRequests}</p></Sec>}
+      {event.adminNotes&&<Sec title="Admin Notes (internal)" emoji="🔐"><p style={{fontSize:"13px",color:"var(--purple)",lineHeight:1.75,fontStyle:"italic"}}>{event.adminNotes}</p></Sec>}
+    </div>
+  </div>);}
+
+// ════════════════════════════════════════════════
+// BRAND HELPER
+// ════════════════════════════════════════════════
+function getBrand(eventType){
+  if(eventType==="wedding") return {
+    name:"YourWeddingsDJ.com",
+    address:"Waterford, MI 48328",
+    phone:"(248) 390-4576",
+    email:"directmixentertainment@gmail.com",
+    website:"www.yourweddingsdj.com",
+  };
+  return {
+    name:"Directmix Entertainment",
+    address:"237 Fernbarry, Waterford, MI 48328",
+    phone:"(248) 390-4576",
+    email:"directmixentertainment@gmail.com",
+    website:"www.directmixentertainment.com",
+  };
+}
+
+// ════════════════════════════════════════════════
+// GOOGLE CALENDAR LINK GENERATOR
+// ════════════════════════════════════════════════
+function gcalLink(event){
+  if(!event.eventDate) return null;
+  const pad = n => String(n).padStart(2,"0");
+  const dateStr = event.eventDate.replace(/-/g,"");
+  let start, end;
+  if(event.startTime){
+    const [sh,sm]=event.startTime.split(":");
+    start=`${dateStr}T${pad(sh)}${pad(sm)}00`;
+    if(event.endTime){
+      const [eh,em]=event.endTime.split(":");
+      end=`${dateStr}T${pad(eh)}${pad(em)}00`;
+    } else {
+      // default 4 hours
+      const eh=(parseInt(sh)+4)%24;
+      end=`${dateStr}T${pad(eh)}${pad(sm)}00`;
+    }
+  } else {
+    start=dateStr; end=dateStr;
+  }
+  const loc=encodeURIComponent([event.venueName,event.venueAddress,event.venueCity,event.venueState].filter(Boolean).join(", "));
+  const title=encodeURIComponent(event.eventName||"Event");
+  const details=encodeURIComponent(`Client: ${event.clientName}\nPhone: ${event.phone}\nEmail: ${event.email}\nGuests: ${event.guestCount||"TBD"}`);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${loc}&details=${details}`;
+}
+
+// ════════════════════════════════════════════════
+// INVOICE PRINT VIEW
+// ════════════════════════════════════════════════
+function InvoiceView({event,payRequests,onClose}){
+  const brand=getBrand(event.eventType);
+  const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
+  const total=reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const paid=reqs.filter(r=>r.status==="paid").reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const balance=total-paid;
+  const m=meta(event.eventType);
+  const invoiceNum=`INV-${event.id?.slice(-6).toUpperCase()||"000000"}`;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,overflowY:"auto",padding:"24px"}}>
+      <div style={{maxWidth:"700px",margin:"0 auto"}}>
+        <div style={{display:"flex",gap:"12px",marginBottom:"16px",justifyContent:"flex-end"}}>
+          <button className="btn b-gold" onClick={()=>window.print()} style={{padding:"9px 20px"}}>🖨 Print / Save PDF</button>
+          <button className="btn b-out" onClick={onClose}>✕ Close</button>
+        </div>
+        <div id="invoice-print" style={{background:"#fff",borderRadius:"12px",padding:"48px",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1d2e",boxShadow:"0 4px 24px rgba(0,0,0,.15)"}}>
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"40px",paddingBottom:"28px",borderBottom:"3px solid #c8952a"}}>
+            <div>
+              <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"28px",fontWeight:400,color:"#1a1d2e",marginBottom:"6px"}}>{brand.name}</h1>
+              <div style={{fontSize:"13px",color:"#6a7090",lineHeight:1.8}}>
+                <div>{brand.address}</div>
+                <div>{brand.phone}</div>
+                <div>{brand.email}</div>
+                <div>{brand.website}</div>
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:"32px",fontWeight:700,color:"#c8952a",fontFamily:"'Playfair Display',Georgia,serif",marginBottom:"8px"}}>INVOICE</div>
+              <div style={{fontSize:"13px",color:"#6a7090",lineHeight:1.9}}>
+                <div><strong style={{color:"#1a1d2e"}}>Invoice #:</strong> {invoiceNum}</div>
+                <div><strong style={{color:"#1a1d2e"}}>Date:</strong> {new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+                <div><strong style={{color:"#1a1d2e"}}>Event Date:</strong> {fDate(event.eventDate)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bill To / Event Info */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"32px",marginBottom:"36px"}}>
+            <div>
+              <div style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"#c8952a",marginBottom:"10px"}}>Bill To</div>
+              <div style={{fontSize:"14px",lineHeight:1.9,color:"#1a1d2e"}}>
+                <div style={{fontWeight:600,fontSize:"16px"}}>{event.clientName||"—"}</div>
+                <div style={{color:"#6a7090"}}>{event.address||""}</div>
+                <div style={{color:"#6a7090"}}>{event.phone||""}</div>
+                <div style={{color:"#6a7090"}}>{event.email||""}</div>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"#c8952a",marginBottom:"10px"}}>Event Details</div>
+              <div style={{fontSize:"13px",lineHeight:1.9,color:"#6a7090"}}>
+                <div><strong style={{color:"#1a1d2e"}}>{m.e} {m.label}</strong></div>
+                <div>{fDate(event.eventDate)}</div>
+                {event.startTime&&<div>{f12(event.startTime)}{event.endTime&&` – ${f12(event.endTime)}`}</div>}
+                <div>{event.venueName}{event.venueCity&&`, ${event.venueCity}`}</div>
+                {event.guestCount&&<div>{event.guestCount} guests</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Line items */}
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px"}}>
+            <thead>
+              <tr style={{background:"#1a2640"}}>
+                <th style={{padding:"12px 16px",textAlign:"left",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",borderRadius:"6px 0 0 6px"}}>Description</th>
+                <th style={{padding:"12px 16px",textAlign:"center",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff"}}>Due Date</th>
+                <th style={{padding:"12px 16px",textAlign:"center",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff"}}>Status</th>
+                <th style={{padding:"12px 16px",textAlign:"right",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",borderRadius:"0 6px 6px 0"}}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reqs.length===0&&(
+                <tr><td colSpan={4} style={{padding:"20px 16px",textAlign:"center",fontSize:"13px",color:"#9fa4bc",fontStyle:"italic"}}>No payment items added yet — add payment requests from the admin event view.</td></tr>
+              )}
+              {reqs.map((r,i)=>(
+                <tr key={r.id} style={{borderBottom:"1px solid #dde1eb",background:i%2===0?"#f7f8fb":"#fff"}}>
+                  <td style={{padding:"13px 16px",fontSize:"14px",color:"#1a1d2e"}}>{r.label}</td>
+                  <td style={{padding:"13px 16px",fontSize:"13px",color:"#6a7090",textAlign:"center"}}>{r.dueDate?fShort(r.dueDate):"—"}</td>
+                  <td style={{padding:"13px 16px",textAlign:"center"}}>
+                    <span style={{padding:"2px 10px",borderRadius:"20px",fontSize:"11px",fontWeight:700,textTransform:"uppercase",background:r.status==="paid"?"#eaf7f0":"#fcecea",color:r.status==="paid"?"#157a42":"#b52b2b",border:`1px solid ${r.status==="paid"?"#9ed9be":"#f0b0a8"}`}}>{r.status}</span>
+                  </td>
+                  <td style={{padding:"13px 16px",fontSize:"14px",fontWeight:600,color:"#1a1d2e",textAlign:"right"}}>${parseFloat(r.amount||0).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{borderTop:"2px solid #dde1eb"}}>
+                <td colSpan={3} style={{padding:"12px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Total</td>
+                <td style={{padding:"12px 16px",textAlign:"right",fontSize:"15px",fontWeight:700,color:"#1a1d2e"}}>${total.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td colSpan={3} style={{padding:"6px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Paid</td>
+                <td style={{padding:"6px 16px",textAlign:"right",fontSize:"14px",fontWeight:600,color:"#157a42"}}>-${paid.toFixed(2)}</td>
+              </tr>
+              <tr style={{background:"#1a2640",borderRadius:"8px"}}>
+                <td colSpan={3} style={{padding:"14px 16px",textAlign:"right",fontSize:"14px",fontWeight:700,color:"#fff",borderRadius:"6px 0 0 6px"}}>Balance Due</td>
+                <td style={{padding:"14px 16px",textAlign:"right",fontSize:"18px",fontWeight:700,color:"#e8b845",borderRadius:"0 6px 6px 0"}}>${balance.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Payment note */}
+          <div style={{padding:"16px",background:"#f7f8fb",border:"1.5px solid #dde1eb",borderRadius:"8px",marginBottom:"32px",fontSize:"13px",color:"#6a7090",lineHeight:1.7}}>
+            <strong style={{color:"#1a1d2e"}}>Payment Instructions:</strong> The remaining balance must be paid by cash, bank (cashier's) check, or money order prior to setup on the day of the event. A $100 fee will be assessed for all returned checks. The $200.00 contract signing payment / deposit is non-refundable.
+          </div>
+
+          {/* Footer */}
+          <div style={{textAlign:"center",fontSize:"12px",color:"#9fa4bc",paddingTop:"20px",borderTop:"1px solid #dde1eb"}}>
+            Thank you for choosing {brand.name} — we look forward to making your event unforgettable!
+          </div>
+        </div>
+      </div>
+      <style>{`@media print { body * { visibility: hidden; } #invoice-print, #invoice-print * { visibility: visible; } #invoice-print { position: fixed; top: 0; left: 0; width: 100%; padding: 32px; } }`}</style>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// CONTRACT PRINT VIEW
+// ════════════════════════════════════════════════
+function ContractView({event,payRequests,onClose}){
+  const brand=getBrand(event.eventType);
+  const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
+  const total=reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const deposit=200.00;
+  const [clientSig,setClientSig]=useState("");
+  const [clientDate,setClientDate]=useState("");
+  const [dmSig,setDmSig]=useState("");
+  const [dmDate,setDmDate]=useState("");
+  const today=new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,overflowY:"auto",padding:"24px"}}>
+      <div style={{maxWidth:"760px",margin:"0 auto"}}>
+        <div style={{display:"flex",gap:"12px",marginBottom:"16px",justifyContent:"flex-end"}}>
+          <button className="btn b-gold" onClick={()=>window.print()} style={{padding:"9px 20px"}}>🖨 Print / Save PDF</button>
+          <button className="btn b-out" onClick={onClose}>✕ Close</button>
+        </div>
+        <div id="contract-print" style={{background:"#fff",borderRadius:"12px",padding:"48px",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1d2e",boxShadow:"0 4px 24px rgba(0,0,0,.15)",fontSize:"13px",lineHeight:1.7}}>
+          {/* Header */}
+          <div style={{textAlign:"center",marginBottom:"32px",paddingBottom:"24px",borderBottom:"3px solid #c8952a"}}>
+            <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"26px",fontWeight:400,color:"#1a1d2e",marginBottom:"8px"}}>EVENT BOOKING CONTRACT</h1>
+            <p style={{color:"#6a7090",fontSize:"13px"}}>PLEASE SIGN AND RETURN THIS CONTRACT TO:</p>
+            <p style={{fontWeight:600,color:"#1a1d2e",marginTop:"6px",lineHeight:1.8}}>{brand.name}<br/>{brand.address}<br/>Tel: {brand.phone}<br/>Email: {brand.email}</p>
+          </div>
+
+          {/* Agreement */}
+          <p style={{marginBottom:"16px"}}>Agreement made between <strong>{brand.name}</strong> and:</p>
+          <div style={{background:"#f7f8fb",border:"1.5px solid #dde1eb",borderRadius:"8px",padding:"16px",marginBottom:"20px",lineHeight:2}}>
+            <div><strong>{event.clientName||"___________________"}</strong></div>
+            <div style={{color:"#6a7090"}}>{event.address||"___________________"}</div>
+            <div style={{color:"#6a7090"}}>{event.phone||""}{event.email&&` | ${event.email}`}</div>
+          </div>
+
+          <p style={{marginBottom:"20px"}}>To provide services for the above client on the date of <strong>{event.eventDate||"________"}</strong> between the hours of <strong>{event.startTime?f12(event.startTime):"______"}</strong> to <strong>{event.endTime?f12(event.endTime):"______"}</strong> for a <strong>{meta(event.eventType).label}</strong> to be held at <strong>{event.venueName||"________________"}</strong> located in <strong>{[event.venueCity,event.venueState].filter(Boolean).join(", ")||"________"}</strong>.</p>
+
+          <p style={{marginBottom:"24px",fontWeight:600,fontSize:"14px",color:"#b52b2b"}}>Required contract signing payment (non-refundable deposit): ${deposit.toFixed(2)}</p>
+
+          {/* Pricing table */}
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px",fontSize:"13px"}}>
+            <thead><tr style={{background:"#1a2640"}}><th style={{padding:"10px 14px",textAlign:"left",color:"#fff",fontWeight:600}}>Description</th><th style={{padding:"10px 14px",textAlign:"right",color:"#fff",fontWeight:600}}>Amount</th></tr></thead>
+            <tbody>
+              {reqs.map((r,i)=>(
+                <tr key={r.id} style={{borderBottom:"1px solid #dde1eb",background:i%2===0?"#f7f8fb":"#fff"}}>
+                  <td style={{padding:"10px 14px"}}>{r.label}</td>
+                  <td style={{padding:"10px 14px",textAlign:"right",fontWeight:600}}>${parseFloat(r.amount||0).toFixed(2)}</td>
+                </tr>
+              ))}
+              {reqs.length===0&&<tr><td style={{padding:"10px 14px",color:"#9fa4bc",fontStyle:"italic"}}>Services</td><td style={{padding:"10px 14px",textAlign:"right"}}>$0.00</td></tr>}
+            </tbody>
+            <tfoot>
+              <tr style={{borderTop:"2px solid #1a2640"}}><td style={{padding:"10px 14px",fontWeight:700}}>Total</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,fontSize:"15px"}}>${total.toFixed(2)}</td></tr>
+              <tr><td style={{padding:"6px 14px",color:"#6a7090"}}>Contract Signing Payment (Deposit)</td><td style={{padding:"6px 14px",textAlign:"right",color:"#6a7090"}}>-${deposit.toFixed(2)}</td></tr>
+              <tr style={{background:"#eaf7f0"}}><td style={{padding:"10px 14px",fontWeight:700,color:"#157a42"}}>Balance Due on Day of Event</td><td style={{padding:"10px 14px",textAlign:"right",fontWeight:700,color:"#157a42"}}>${Math.max(0,total-deposit).toFixed(2)}</td></tr>
+            </tfoot>
+          </table>
+
+          {/* Terms */}
+          <div style={{marginBottom:"24px"}}>
+            <h2 style={{fontSize:"14px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",marginBottom:"16px",color:"#1a2640",paddingBottom:"8px",borderBottom:"2px solid #c8952a"}}>TERMS AND CONDITIONS</h2>
+
+            {[
+              ["1. General Provisions",""],
+              ["1.1","The services to be provided by "+brand.name+" are specifically for the event type specified and none other. If the event type is other than specified, "+brand.name+" reserves the right to terminate performance."],
+              ["1.2","The date of the event is not reserved until this Booking Contract or a Retainer Agreement is returned with the contract signing fee to "+brand.name+". The client will be informed if others are interested in the date of the event specified in this Booking Contract."],
+              ["1.3",brand.name+" shall be excused by detention of personnel by sickness, accidents, riots, strikes, epidemics, Acts of God, Force Major, Acts of War or any other legitimate condition beyond "+brand.name+"'s control. If such circumstances arise, all reasonable efforts shall be made by "+brand.name+" to find a replacement entertainment at the agreed upon fees. Should "+brand.name+" be unable to procure a replacement, the client shall receive a 110% refund of all fees paid. The client agrees that "+brand.name+"'s liability shall be exclusively limited to refunding 110% of the fees paid."],
+              ["1.4",brand.name+" shall be ready to perform at the start time of the event. "+brand.name+" requests at least 90 minutes before the event and at least 90 minutes after the event for setup and take down."],
+              ["1.5","This agreement shall be governed by the laws of the State of Michigan. In the event of suit, the client agrees that suit shall be in Kent County."],
+              ["1.6","Except for negligent acts by "+brand.name+" personnel, the client agrees to defend, indemnify, assume liability for and hold "+brand.name+" harmless from any claims, damages, losses and expenses which pertains directly or indirectly to "+brand.name+"'s performance."],
+              ["1.7","In the event that a civil action arises in an effort to enforce any provision of this agreement, the losing party shall pay the attorney's fee and court costs of the prevailing party."],
+              ["1.8","The client may not transfer this Event Booking Contract to another party without the prior written consent of "+brand.name+"."],
+              ["1.9","This Event Booking Contract is not binding until received and signed by an authorized representative of "+brand.name+". Any changes must be written and signed by both parties. Oral agreements are non-binding."],
+              ["1.10","If any clause in this agreement is found to be illegal, the rest of the agreement shall remain in force."],
+              ["1.11",brand.name+" may elect not to exercise their rights as specified in this agreement without waiving the right to exercise those options at a future date."],
+              ["1.12",brand.name+" is acting as a subcontractor to the client and not as an employee of the client."],
+              ["2. Fees",""],
+              ["2.1","Amount for services: This is the total price of the contract."],
+              ["2.2","Contract Signing Payment: This is the non-refundable fee paid to "+brand.name+" to secure the services for the date being booked. This amount is subtracted from the total amount for services."],
+              ["2.3","Balance: The amount remaining after subtracting the Contract Signing Payment and any other portion paid."],
+              ["2.4",brand.name+" reserves the right to seek legal means to recover the remaining balance of the total amount for services and any court and legal fees resulting from such legal means."],
+              ["2.5","The client may pay the remaining balance on the day of the event. The remaining balance must be paid by cash, bank (cashier's) check, or money order and must be paid prior to "+brand.name+" staff setting equipment up. If the remaining balance has not been paid 15 minutes after the scheduled start of the event, "+brand.name+" staff will leave the venue and the client will still be responsible for paying the remaining balance."],
+              ["2.6","There will be a $100 fee added for all returned checks."],
+              ["3. Play List",""],
+              ["3.1",brand.name+" must receive a written event/music planner or music request list at least 7 days prior to the event for it to be included in programming guidelines."],
+              ["3.2","The written event/music planner or music request list shall include a 'Do Not Play' list."],
+              ["3.3","With or without the aid of an event/music planner, "+brand.name+" shall attempt to play the client's and the client's guests' music requests but shall not be held responsible if certain selections are unavailable."],
+              ["3.4",brand.name+" shall make an extra effort to have music requests available if received IN WRITING at least 7 days prior to the event. Use of "+brand.name+"'s online music selection system shall be considered 'IN WRITING.'"],
+              ["3.5",brand.name+" reserves the right to include selections in addition to or substitution of those specified by the client in order to increase dance participation. None of these additional selections shall be on the client's Do Not Play list."],
+              ["3.6","In order to present songs in an appropriate manner, "+brand.name+" reserves the right to modify the order of songs presented on the event/music planner or music request list."],
+              ["4. Venue Access",""],
+              ["4.1","The client and their agents are to provide "+brand.name+" immediate, unencumbered, and non-hazardous access into, through and out of the loading area, facility, and work space."],
+              ["4.2",brand.name+" requires ramp or elevator access between the parking/service entrance and the setup area. If the only access is via steps, "+brand.name+" reserves the right to charge an additional $10/step for 3 or more steps. "+brand.name+" must be notified of steps being the only access method prior to signing."],
+              ["4.3","The client is responsible for paying any charges imposed by the venue including parking, use of electric power, and overtime."],
+              ["5. Working Conditions","The client shall provide "+brand.name+" with safe and appropriate working conditions including:"],
+              ["5.1","A 6 foot by 6 foot area for the DJ's main setup and space for speakers."],
+              ["5.2","A 120-volt outlet (3-prong grounded with at least 15 amps available) from a reliable power source within 50 feet of the set-up area."],
+              ["5.3","A facility that completely covers and protects "+brand.name+"'s equipment from adverse weather conditions."],
+              ["5.4","Providing crowd control if warranted; and furnishing directions and free parking."],
+              ["5.5","For outdoor events, the client shall provide a dry area. If the ground is soft, the client shall place plywood in a 6x6 foot area for "+brand.name+". The client accepts full responsibility for any damages, injuries or delays from failure to comply."],
+              ["6. Safety of Personnel",""],
+              ["6.1","The client shall take steps to protect "+brand.name+"'s equipment and personnel during the contracted period. Any damages incurred due to a lack of reasonable protection shall be payable by the client to the extent of repair or replacement."],
+              ["6.2","In the event of circumstances deemed by "+brand.name+" to present a threat of injury or harm, "+brand.name+" reserves the right to cease performance. The client shall be responsible for payment in full regardless of whether the situation is resolved."],
+              ["6.3",brand.name+" reserves the right to deny any guest access to the sound system, music recordings, or other equipment."],
+              ["7. Cancellation",""],
+              ["7.1","This agreement cannot be canceled except by mutual written consent of both the client and "+brand.name+"."],
+              ["7.2","If cancellation is initiated by the client in writing and agreed to by "+brand.name+" in writing, the client shall be required to pay any unrecoverable costs already incurred."],
+              ["7.3","Up to 45 days prior to the event: "+brand.name+" is entitled to the Contract Signing Payment ($200.00)."],
+              ["7.4","Between 30 days and 45 days prior to the event: "+brand.name+" is entitled to 75% of the amount for services."],
+              ["7.5","If the event is cancelled 30 days or less from the date of the event, "+brand.name+" is entitled to 100% of the amount for services."],
+              ["8. Photo Montages",""],
+              ["8.1","All materials for photo montages are due into "+brand.name+" 15 days prior to the event."],
+              ["8.2","A $50 late fee will be assessed for materials received after 15 days prior to the event."],
+              ["8.3","Do not send materials later than 10 days prior to the event as there will not be enough time to develop the montage."],
+              ["9. Song Content","Due to the nature of current music, "+brand.name+" is not responsible for foul or abusive content in songs or singers' comments on microphones. Standard non-karaoke music is all radio versions or censored. If requested, "+brand.name+" will make 2 announcements about use of language but cannot police the entire evening."],
+            ].map(([num,text],i)=>{
+              const isHeader=text===""||num.split(".").length===1;
+              if(isHeader&&text==="") return <p key={i} style={{fontWeight:700,marginTop:"16px",marginBottom:"6px",color:"#1a2640",fontSize:"13.5px"}}>{num}</p>;
+              return <p key={i} style={{marginBottom:"8px",paddingLeft:isHeader?"0":"0"}}><strong>{num}.</strong> {text}</p>;
+            })}
+          </div>
+
+          <p style={{marginBottom:"24px",fontStyle:"italic",color:"#6a7090",fontSize:"12px"}}>This contract may not be altered, cancelled, assigned, or transferred without the consent and authorization of {brand.name}. If unauthorized changes are made, {brand.name} reserves the right to void the contract and withhold the contract signing fee.</p>
+
+          {/* Signature lines */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"32px",marginTop:"32px",paddingTop:"24px",borderTop:"2px solid #dde1eb"}}>
+            <div>
+              <div style={{marginBottom:"16px"}}>
+                <label style={{display:"block",fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#c8952a",marginBottom:"6px"}}>{brand.name} Representative</label>
+                <input value={dmSig} onChange={e=>setDmSig(e.target.value)} placeholder="Authorized signature" style={{borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:"2px solid #1a1d2e",borderRadius:0,padding:"8px 0",fontSize:"15px",fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic"}}/>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#c8952a",marginBottom:"6px"}}>Date</label>
+                <input value={dmDate} onChange={e=>setDmDate(e.target.value)} placeholder={today} style={{borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:"2px solid #1a1d2e",borderRadius:0,padding:"8px 0",fontSize:"14px"}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{marginBottom:"16px"}}>
+                <label style={{display:"block",fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#c8952a",marginBottom:"6px"}}>Client Signature</label>
+                <input value={clientSig} onChange={e=>setClientSig(e.target.value)} placeholder="Client full name" style={{borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:"2px solid #1a1d2e",borderRadius:0,padding:"8px 0",fontSize:"15px",fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic"}}/>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#c8952a",marginBottom:"6px"}}>Date</label>
+                <input value={clientDate} onChange={e=>setClientDate(e.target.value)} placeholder={today} style={{borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:"2px solid #1a1d2e",borderRadius:0,padding:"8px 0",fontSize:"14px"}}/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <style>{`@media print { body * { visibility: hidden; } #contract-print, #contract-print * { visibility: visible; } #contract-print { position: fixed; top: 0; left: 0; width: 100%; padding: 32px; font-size: 11px; } #contract-print input { border: none !important; outline: none !important; } }`}</style>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// ROOT APP
+// ════════════════════════════════════════════════
+function App(){
+  const[user,setUser]     =useState(null);
+  const[loading,setLoad]  =useState(true);
+  const[screen,setScreen] =useState("auth");
+  const[events,setEvents] =useState([]);
+  const[allEvs,setAllEvs] =useState([]);
+  const[profiles,setProfs]=useState([]);
+  const[paySet,setPaySet] =useState(BLANK_PAY);
+  const[payReqs,setPayReqs]=useState([]);
+  const[selId,setSelId]   =useState(null);
+
+  // ── Load session on mount ────────────────────
+  useEffect(()=>{
+    (async()=>{
+      // Detect Supabase password-recovery redirect (URL contains #type=recovery)
+      const hash = window.location.hash || "";
+      if(hash.includes("type=recovery")){
+        // Supabase sets the session automatically from the hash; wait briefly
+        await new Promise(r=>setTimeout(r,400));
+        setLoad(false);
+        setScreen("reset");
+        // Clean the hash from the URL bar without reload
+        history.replaceState(null,"",window.location.pathname+window.location.search);
+        return;
+      }
+      const{data:{session}}=await DB.auth.getSession();
+      if(session){
+        const{data:prof}=await DB.from("dj_profiles").select("*").eq("id",session.user.id).single();
+        const u={...session.user,...(prof||{})};
+        setUser(u);
+        await loadUserData(u);
+      }
+      setLoad(false);
+    })();
+  },[]);
+
+  const loadUserData=async u=>{
+    // Load payment settings (all users need to see payment methods)
+    const{data:ps}=await DB.from("dj_payment_settings").select("*").order("updated_at",{ascending:false}).limit(1).single();
+    if(ps){setPaySet({venmo:ps.venmo||"",cashApp:ps.cash_app||"",zelle:ps.zelle||"",paypalMe:ps.paypal_me||"",methods:ps.methods||{}});}else{setPaySet(BLANK_PAY);}
+
+    if(u.is_admin){
+      const{data:evs}=await DB.from("dj_events").select("*").order("event_date",{ascending:true,nullsFirst:false});
+      setAllEvs((evs||[]).map(fromRow));
+      const{data:profs}=await DB.from("dj_profiles").select("*").order("created_at",{ascending:false});
+      setProfs(profs||[]);
+      const{data:pr}=await DB.from("dj_payment_requests").select("*");
+      setPayReqs(pr||[]);
+      setScreen("admin");
+    } else {
+      const{data:evs}=await DB.from("dj_events").select("*").eq("user_id",u.id).order("updated_at",{ascending:false});
+      setEvents((evs||[]).map(fromRow));
+      const{data:pr}=await DB.from("dj_payment_requests").select("*");
+      setPayReqs(pr||[]);
+      setScreen("dash");
+    }
+  };
+
+  const handleLogin=async u=>{setUser(u);await loadUserData(u);};
+  const handleLogout=async()=>{await DB.auth.signOut();setUser(null);setEvents([]);setScreen("auth");};
+
+  const handleSaveEvent=async ev=>{
+    const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();
+    if(!error&&data){
+      const mapped=fromRow(data);
+      setEvents(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
+      if(user?.is_admin)setAllEvs(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
+      setSelId(mapped.id);
+      setScreen(user?.is_admin?"admin_view":"view");
+    }
+  };
+
+  const handleDelete=async id=>{await DB.from("dj_events").delete().eq("id",id);setEvents(p=>p.filter(e=>e.id!==id));};
+  const handleAdminSave=async ev=>{const{data}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}};
+  const handleSavePaySettings=async s=>{await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});setPaySet(s);};
+
+  const handleAddClient=async(name,email,password)=>{
+    const{data,error}=await DB.auth.signUp({email,password,options:{data:{name}}});
+    if(error)return error.message;
+    const{data:profs}=await DB.from("dj_profiles").select("*").order("created_at",{ascending:false});
+    setProfs(profs||[]);
+    return null;
+  };
+
+  const handleAddPayReq=async req=>{
+    await DB.from("dj_payment_requests").insert({id:req.id,event_id:req.eventId,amount:req.amount,label:req.label,due_date:req.dueDate||null,status:req.status});
+    const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
+  };
+  const handleUpdatePayReq=async req=>{
+    if(req._delete){await DB.from("dj_payment_requests").delete().eq("id",req.id);}
+    else{await DB.from("dj_payment_requests").update({status:req.status}).eq("id",req.id);}
+    const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
+  };
+
+  // Map payment requests to camelCase
+  const pReqs=payReqs.map(r=>({id:r.id,eventId:r.event_id,amount:r.amount,label:r.label,dueDate:r.due_date,status:r.status}));
+  const sel=events.find(e=>e.id===selId)||allEvs.find(e=>e.id===selId)||null;
+
+  if(!CONFIGURED) return(
+    <div style={{minHeight:"100vh",background:"var(--nav)",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
+      <div style={{maxWidth:"480px",width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:"32px"}}>
+          <div style={{fontSize:"48px",marginBottom:"16px"}}>🎵</div>
+          <h1 style={{fontFamily:"var(--ff)",fontSize:"32px",fontWeight:400,color:"#fff",marginBottom:"8px"}}>{BRAND}</h1>
+          <p style={{fontSize:"14px",color:"rgba(255,255,255,.5)"}}>Setup Required</p>
+        </div>
+        <div style={{background:"var(--white)",borderRadius:"12px",padding:"32px"}}>
+          <h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:"16px"}}>⚙️ Add Your Supabase Keys</h2>
+          <p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"20px",lineHeight:1.7}}>Open <strong>dj-planner.html</strong> in Notepad and fill in the 3 lines at the very top of the file:</p>
+          <div style={{background:"#f5f6fa",border:"1.5px solid var(--border)",borderRadius:"8px",padding:"16px",fontFamily:"monospace",fontSize:"13px",color:"var(--ink)",lineHeight:2,marginBottom:"20px"}}>
+            <div><span style={{color:"var(--muted)"}}>const SB_URL  =</span> <strong style={{color:"var(--blue)"}}>"https://xxxx.supabase.co"</strong></div>
+            <div><span style={{color:"var(--muted)"}}>const SB_ANON =</span> <strong style={{color:"var(--blue)"}}>"eyJhbGci..."</strong></div>
+            <div><span style={{color:"var(--muted)"}}>const PORTAL  =</span> <strong style={{color:"var(--blue)"}}>"https://yoursite.com"</strong></div>
+          </div>
+          <p style={{fontSize:"13px",color:"var(--muted)",lineHeight:1.7}}>Get your keys from:<br/><strong style={{color:"var(--ink)"}}>Supabase Dashboard → Project Settings → API</strong></p>
+          <div style={{marginTop:"20px",padding:"12px 14px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"8px",fontSize:"12px",color:"#7a5c10"}}>
+            After editing, save the file and refresh this page.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if(loading) return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg)"}}>
+      <div style={{textAlign:"center"}}><div className="spin" style={{margin:"0 auto 16px"}}/><p style={{fontSize:"13px",color:"var(--muted)"}}>Loading…</p></div>
+    </div>
+  );
+
+  const handleResetDone = async () => {
+    // After password update, Supabase already has a session — load it
+    const{data:{session}}=await DB.auth.getSession();
+    if(session){
+      const{data:prof}=await DB.from("dj_profiles").select("*").eq("id",session.user.id).single();
+      const u={...session.user,...(prof||{})};
+      setUser(u);
+      await loadUserData(u);
+    } else {
+      setScreen("auth");
+    }
+  };
+
+  return(<>
+    {screen==="auth"       && <Auth onLogin={handleLogin}/>}
+    {screen==="reset"      && <ResetPassword onDone={handleResetDone}/>}
+    {screen==="dash"       && <Dashboard user={user} events={events} onNew={()=>{setSelId(null);setScreen("new");}} onView={id=>{setSelId(id);setScreen("view");}} onEdit={id=>{setSelId(id);setScreen("edit");}} onDelete={handleDelete} onLogout={handleLogout}/>}
+    {screen==="new"        && <EventForm event={null} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("dash")}/>}
+    {screen==="edit"       && <EventForm event={sel} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("view")}/>}
+    {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
+    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
+    {screen==="admin_view" && <AdminEventView event={sel} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
+  </>);
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
+</script>
+</body>
+</html>
