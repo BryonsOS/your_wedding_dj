@@ -178,10 +178,28 @@ const f12 = t => {
   catch{ return t; }
 };
 const fDate  = d => { if(!d) return "TBD"; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}); }catch{return d;} };
-const money  = n => "$"+(parseFloat(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money  = n => { const v=parseFloat(n)||0; return (v<0?"-$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); };
 const PAY_METHODS = ["Cash","Check","PayPal","Venmo","Apple Pay","Other"]; // "Other" asks for a typed method
 const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const paidFor = (eventId,pays) => (pays||[]).filter(p=>p.eventId===eventId).reduce((t,p)=>t+(parseFloat(p.amount)||0),0);
+const num = v => v===""||v==null ? null : (parseFloat(v)||0);
+const str = v => v==null ? "" : String(v);
+// Itemized price lines for an event's package, extra time and add-ons (snapshot stored on the event)
+const priceLines = ev => {
+  const L=[];
+  if(ev.packageName) L.push({id:"pkg",label:`${ev.packageName} Package${num(ev.packageHours)?` — ${num(ev.packageHours)} hour${num(ev.packageHours)===1?"":"s"}`:""}`,amount:num(ev.packagePrice)||0});
+  if(num(ev.extraHours)>0) L.push({id:"ot",label:`Additional time — ${num(ev.extraHours)} hr × ${money(ev.overtimeRate)}`,amount:num(ev.extraHours)*(num(ev.overtimeRate)||0)});
+  (ev.addons||[]).forEach(a=>L.push({id:"a"+a.id,label:(a.qty||1)>1?`${a.name} × ${a.qty}`:a.name,amount:(num(a.price)||0)*(a.qty||1)}));
+  return L;
+};
+const linesTotal = L => L.reduce((t,l)=>t+(l.amount||0),0);
+// Invoice/contract lines: itemized when a package is set, with an adjustment line if the total was overridden
+const billLines = (ev,reqs) => {
+  const L=priceLines(ev), total=num(ev.totalAmount);
+  if(L.length){ const diff=(total??linesTotal(L))-linesTotal(L); if(Math.abs(diff)>=0.005) L.push({id:"adj",label:diff<0?"Discount":"Adjustment",amount:diff}); return L; }
+  if(total!=null) return [{id:"svc",label:`DJ services — ${meta(ev.eventType).label}`,amount:total}];
+  return reqs||[];
+};
 const fShort = d => { if(!d) return ""; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }catch{return d;} };
 
 const blankEv = () => ({
@@ -197,6 +215,7 @@ const blankEv = () => ({
   candleLighting:Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
   vibes:[],mustPlay:[{song:"",artist:""}],doNotPlay:[{song:"",artist:""}],
   specialRequests:"",totalAmount:"",status:"draft",
+  packageId:"",packageName:"",packagePrice:"",packageHours:"",overtimeRate:"",extraHours:"",addons:[],depositAmount:"",
 });
 
 // ── DB row mappers ─────────────────────────────
@@ -220,7 +239,10 @@ const toRow = ev => ({
   hora_song:ev.horaSong, hora_artist:ev.horaArtist,
   opening_song:ev.openingSong, opening_artist:ev.openingArtist,
   special_requests:ev.specialRequests, status:ev.status,
-  total_amount:ev.totalAmount===""||ev.totalAmount==null?null:(parseFloat(ev.totalAmount)||0),
+  total_amount:num(ev.totalAmount),
+  package_id:ev.packageId||null, package_name:ev.packageName||null, package_price:num(ev.packagePrice),
+  package_hours:num(ev.packageHours), overtime_rate:num(ev.overtimeRate), extra_hours:num(ev.extraHours),
+  addons:ev.addons||[], deposit_amount:num(ev.depositAmount),
   updated_at:new Date().toISOString(),
 });
 
@@ -245,7 +267,9 @@ const fromRow = r => !r ? null : ({
   lastDanceSong:r.last_dance_song||"", lastDanceArtist:r.last_dance_artist||"",
   horaSong:r.hora_song||"", horaArtist:r.hora_artist||"",
   openingSong:r.opening_song||"", openingArtist:r.opening_artist||"",
-  specialRequests:r.special_requests||"", totalAmount:r.total_amount!=null?String(r.total_amount):"",
+  specialRequests:r.special_requests||"", totalAmount:str(r.total_amount),
+  packageId:r.package_id||"", packageName:r.package_name||"", packagePrice:str(r.package_price), packageHours:str(r.package_hours),
+  overtimeRate:str(r.overtime_rate), extraHours:str(r.extra_hours), addons:r.addons||[], depositAmount:str(r.deposit_amount),
   status:r.status||"draft", createdAt:r.created_at, updatedAt:r.updated_at,
 });
 
@@ -558,7 +582,49 @@ function Dashboard({user,events,onView,onEdit,onLogout}){
 // ════════════════════════════════════════════════
 function StepHeader({title,sub}){return(<div><div style={{width:32,height:3,background:"var(--gold)",borderRadius:2,marginBottom:14}}/><h2 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)",marginBottom:4}}>{title}</h2><p style={{fontSize:"13px",color:"var(--muted)",marginBottom:22,lineHeight:1.65}}>{sub}</p></div>);}
 
-function Step1({d,u,locked,admin}){
+// Admin: choose package, extra hours and add-ons; keeps the event total in sync (it can still be overridden)
+function PackagePicker({d,u,catalog}){
+  const pk=(catalog?.packages||[]).filter(p=>p.active||p.id===d.packageId);
+  const ad=(catalog?.addons||[]).filter(a=>a.active||(d.addons||[]).some(x=>x.id===a.id));
+  const apply=c=>{const next={...d,...c};u({...c,totalAmount:String(linesTotal(priceLines(next)))});};
+  const pick=id=>{const p=pk.find(x=>x.id===id);
+    if(!p)return apply({packageId:"",packageName:"",packagePrice:"",packageHours:"",overtimeRate:""});
+    apply({packageId:p.id,packageName:p.name,packagePrice:str(p.price),packageHours:str(p.hours),overtimeRate:str(p.overtime_rate),depositAmount:str(p.deposit)});};
+  const has=id=>(d.addons||[]).find(x=>x.id===id);
+  const toggle=a=>apply({addons:has(a.id)?d.addons.filter(x=>x.id!==a.id):[...(d.addons||[]),{id:a.id,name:a.name,price:num(a.price)||0,qty:1}]});
+  const setQty=(id,q)=>apply({addons:d.addons.map(x=>x.id===id?{...x,qty:Math.max(1,parseInt(q,10)||1)}:x)});
+  const setPrice=(id,v)=>apply({addons:d.addons.map(x=>x.id===id?{...x,price:num(v)||0}:x)});
+  const calc=linesTotal(priceLines(d));
+  return(
+    <div style={{padding:"18px",background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px"}}>
+      <div className="lbl" style={{color:"var(--purple)",marginBottom:"12px"}}>Package & Pricing (admin only)</div>
+      <div className="g3" style={{marginBottom:"14px"}}>
+        <div className="fg"><label className="lbl">Package</label>
+          <select value={d.packageId||""} onChange={e=>pick(e.target.value)}><option value="">No package</option>{pk.map(p=><option key={p.id} value={p.id}>{p.name} — {money(p.price)}{num(p.hours)?` / ${num(p.hours)} hr`:""}</option>)}</select></div>
+        <div className="fg"><label className="lbl">Extra Hours{d.overtimeRate?` (${money(d.overtimeRate)}/hr)`:""}</label><input type="number" min="0" step="0.5" value={d.extraHours} onChange={e=>apply({extraHours:e.target.value})} placeholder="0" disabled={!d.packageId}/></div>
+        <div className="fg"><label className="lbl">Deposit ($)</label><input type="number" min="0" step="0.01" value={d.depositAmount} onChange={e=>u({depositAmount:e.target.value})} placeholder="200.00"/></div>
+      </div>
+      <label className="lbl">Add-ons</label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:"8px",marginBottom:"14px"}}>
+        {ad.map(a=>{const sel=has(a.id);return(
+          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",borderRadius:"10px",border:`1.5px solid ${sel?"rgba(255,255,255,.4)":"var(--border)"}`,background:sel?"rgba(255,255,255,.06)":"transparent"}}>
+            <input type="checkbox" checked={!!sel} onChange={()=>toggle(a)} style={{width:"16px",height:"16px",flexShrink:0,cursor:"pointer",appearance:"auto",WebkitAppearance:"checkbox"}}/>
+            <span style={{flex:1,fontSize:"12.5px",color:sel?"var(--ink)":"var(--body)",cursor:"pointer"}} onClick={()=>toggle(a)}>{a.name}</span>
+            {sel?<>
+              {a.per_unit&&<input type="number" min="1" value={sel.qty} onChange={e=>setQty(a.id,e.target.value)} title={`Number of ${a.per_unit}s`} style={{width:"52px",padding:"5px 6px",fontSize:"12px"}}/>}
+              <input type="number" min="0" step="0.01" value={sel.price} onChange={e=>setPrice(a.id,e.target.value)} title="Price for this event" style={{width:"78px",padding:"5px 6px",fontSize:"12px"}}/>
+            </>:<span style={{fontSize:"12px",color:"var(--muted)"}}>{money(a.price)}{a.per_unit?`/${a.per_unit}`:""}</span>}
+          </div>);})}
+      </div>
+      <div style={{display:"flex",alignItems:"flex-end",gap:"14px",flexWrap:"wrap"}}>
+        <div className="fg" style={{width:"200px"}}><label className="lbl">Event Total ($)</label><input type="number" min="0" step="0.01" value={d.totalAmount} onChange={e=>u({totalAmount:e.target.value})} placeholder="1500.00"/></div>
+        <div style={{fontSize:"12.5px",color:"var(--body)",paddingBottom:"12px"}}>Calculated: <strong style={{color:"var(--ink)"}}>{money(calc)}</strong>{d.totalAmount!==""&&Math.abs((num(d.totalAmount)||0)-calc)>=0.005&&<span style={{color:"var(--purple)"}}> · {(num(d.totalAmount)||0)<calc?"discount":"adjustment"} of {money(Math.abs((num(d.totalAmount)||0)-calc))} will show on the invoice</span>}</div>
+      </div>
+    </div>
+  );
+}
+
+function Step1({d,u,locked,admin,catalog}){
   if(locked){const m=meta(d.eventType);return(<div className="fade">
     <StepHeader title="Your Event" sub="These details are set by your DJ."/>
     <div style={{display:"flex",alignItems:"center",gap:"14px",padding:"18px 20px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"12px",marginBottom:"14px"}}>
@@ -587,7 +653,7 @@ function Step1({d,u,locked,admin}){
       <div className="fg"><label className="lbl">Start Time</label><input type="time" value={d.startTime} onChange={e=>u({startTime:e.target.value})}/></div>
       <div className="fg"><label className="lbl">End Time</label><input type="time" value={d.endTime} onChange={e=>u({endTime:e.target.value})}/></div>
     </div>
-    {admin&&<div className="fg" style={{maxWidth:"260px"}}><label className="lbl">Event Total ($)</label><input type="number" min="0" step="0.01" value={d.totalAmount} onChange={e=>u({totalAmount:e.target.value})} placeholder="1500.00"/></div>}
+    {admin&&<PackagePicker d={d} u={u} catalog={catalog}/>}
   </div>
 </div>);}
 
@@ -722,7 +788,7 @@ function Step7({d}){
     <OkBox msg="Review the details above, then click Submit. We'll follow up to confirm everything."/>
   </div>);}
 
-function EventForm({event,userId,clients,onSave,onCancel}){
+function EventForm({event,userId,clients,catalog,onSave,onCancel}){
   const admin=!!clients; // admin creates/edits events on behalf of a client account
   const[step,setStep]=useState(1);
   const[data,setData]=useState(()=>{
@@ -745,7 +811,7 @@ function EventForm({event,userId,clients,onSave,onCancel}){
     const status=admin&&event?.id?data.status:(draft?"draft":"submitted");
     setErr("");setSaving(true);const e=await onSave({...data,status,id:data.id||uid(),userId:data.userId||userId});setSaving(false);if(e)setErr(e);
   };
-  const steps=[<Step1 d={data} u={u} locked={!admin} admin={admin}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
+  const steps=[<Step1 d={data} u={u} locked={!admin} admin={admin} catalog={catalog}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
   return(
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <header style={{background:"var(--nav)",padding:"0 24px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
@@ -799,7 +865,7 @@ function EventForm({event,userId,clients,onSave,onCancel}){
 // ════════════════════════════════════════════════
 // CLIENT EVENT VIEW
 // ════════════════════════════════════════════════
-function EventView({event,paySettings,payRequests,payments,onEdit,onBack}){
+function EventView({event,paySettings,payRequests,payments,catalog,onEdit,onBack}){
   const[doc,setDoc]=useState(null); // "invoice" | "contract"
   if(!event) return null;
   const myPays=(payments||[]).filter(p=>p.eventId===event.id).sort((a,b)=>(b.paidOn||"").localeCompare(a.paidOn||""));
@@ -841,6 +907,13 @@ function EventView({event,paySettings,payRequests,payments,onEdit,onBack}){
             </div>
           );})}
         </div>}
+        {event.packageName&&(()=>{const p=(catalog?.packages||[]).find(x=>x.id===event.packageId);return(
+          <Sec title="Your Package">
+            <div style={{fontFamily:"var(--ff)",fontSize:"20px",color:"var(--ink)",marginBottom:"8px"}}>{event.packageName}{num(event.packageHours)?<span style={{fontFamily:"var(--fb)",fontSize:"13px",color:"var(--muted)"}}> · {num(event.packageHours)+(num(event.extraHours)||0)} hours</span>:null}</div>
+            {p?.includes&&<ul style={{margin:"0 0 10px 18px",fontSize:"13px",color:"var(--body)",lineHeight:1.8}}>{p.includes.split("\n").filter(Boolean).map((l,i)=><li key={i}>{l}</li>)}</ul>}
+            {(event.addons||[]).length>0&&<div style={{fontSize:"13px",color:"var(--body)"}}><span className="lbl" style={{display:"inline"}}>Add-ons: </span>{event.addons.map(a=>(a.qty||1)>1?`${a.name} × ${a.qty}`:a.name).join(", ")}</div>}
+            {num(event.overtimeRate)>0&&<div style={{fontSize:"12px",color:"var(--muted)",marginTop:"8px"}}>Additional time is available at {money(event.overtimeRate)}/hour.</div>}
+          </Sec>);})()}
         {myPays.length>0&&<Sec title="Payment History">{myPays.map(p=>(
           <div key={p.id} style={{display:"flex",justifyContent:"space-between",gap:"10px",padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
             <span style={{color:"var(--muted)",width:"110px",flexShrink:0}}>{fShort(p.paidOn)}</span>
@@ -907,6 +980,61 @@ function CalendarView({events,onSelect}){
     </div>
   </div>);}
 
+// Admin: edit packages and add-ons (prices here are defaults; each event keeps the prices it was booked at)
+function CatalogEditor({catalog,onSave}){
+  const[rows,setRows]=useState({}); // id -> edited copy
+  const[busy,setBusy]=useState("");
+  const val=(r,k)=>(rows[r.id]?.[k]??r[k]??"");
+  const set=(r,k,v)=>setRows(p=>({...p,[r.id]:{...r,...p[r.id],[k]:v}}));
+  const save=async(table,r)=>{setBusy(r.id);const ok=await onSave(table,{...r,...rows[r.id]});setBusy("");if(ok)setRows(p=>{const n={...p};delete n[r.id];return n;});};
+  const blankPkg={id:uid(),name:"New Package",price:0,hours:4,overtime_rate:150,deposit:200,includes:"",sort:99,active:true,_new:true};
+  const blankAdd={id:uid(),name:"New Add-on",price:0,description:"",per_unit:"",sort:99,active:true,_new:true};
+  const[extra,setExtra]=useState({packages:[],addons:[]});
+  const pk=[...(catalog.packages||[]),...extra.packages.filter(n=>!(catalog.packages||[]).some(p=>p.id===n.id))];
+  const ad=[...(catalog.addons||[]),...extra.addons.filter(n=>!(catalog.addons||[]).some(a=>a.id===n.id))];
+  const dirty=r=>!!rows[r.id]||r._new;
+  const inp={padding:"7px 9px",fontSize:"13px"};
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"10px"}}>
+      <div><h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)"}}>Packages</h3><p style={{fontSize:"13px",color:"var(--muted)"}}>Default prices. Events keep the price they were booked at.</p></div>
+      <button className="btn b-out" onClick={()=>setExtra(x=>({...x,packages:[...x.packages,{...blankPkg,id:uid()}]}))}>+ Add Package</button>
+    </div>
+    {pk.map(r=>(
+      <div key={r.id} className="card" style={{padding:"16px",marginBottom:"10px",opacity:val(r,"active")?1:.55}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr",gap:"10px",marginBottom:"10px"}}>
+          <div className="fg"><label className="lbl">Name</label><input style={inp} value={val(r,"name")} onChange={e=>set(r,"name",e.target.value)}/></div>
+          <div className="fg"><label className="lbl">Price</label><input style={inp} type="number" value={val(r,"price")} onChange={e=>set(r,"price",e.target.value)}/></div>
+          <div className="fg"><label className="lbl">Hours</label><input style={inp} type="number" step="0.5" value={val(r,"hours")} onChange={e=>set(r,"hours",e.target.value)}/></div>
+          <div className="fg"><label className="lbl">Overtime /hr</label><input style={inp} type="number" value={val(r,"overtime_rate")} onChange={e=>set(r,"overtime_rate",e.target.value)}/></div>
+          <div className="fg"><label className="lbl">Deposit</label><input style={inp} type="number" value={val(r,"deposit")} onChange={e=>set(r,"deposit",e.target.value)}/></div>
+        </div>
+        <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">What's included (one per line — clients see this)</label><textarea value={val(r,"includes")} onChange={e=>set(r,"includes",e.target.value)} style={{minHeight:"70px",fontSize:"13px"}}/></div>
+        <div style={{display:"flex",alignItems:"center",gap:"10px",justifyContent:"flex-end"}}>
+          <span style={{fontSize:"12px",color:"var(--muted)"}}>Active</span><Toggle on={!!val(r,"active")} set={v=>set(r,"active",v)}/>
+          <button className="btn b-gold" disabled={!dirty(r)||busy===r.id} onClick={()=>save("dj_packages",r)} style={{padding:"7px 16px",fontSize:"12px"}}>{busy===r.id?"Saving…":"Save"}</button>
+        </div>
+      </div>
+    ))}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"26px 0 12px",flexWrap:"wrap",gap:"10px"}}>
+      <h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)"}}>Add-ons</h3>
+      <button className="btn b-out" onClick={()=>setExtra(x=>({...x,addons:[...x.addons,{...blankAdd,id:uid()}]}))}>+ Add Add-on</button>
+    </div>
+    <div className="tbl-scroll" style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px"}}><div>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 110px 2.4fr 110px 70px 80px",gap:"10px",padding:"10px 14px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>{["Name","Price","Description","Per (e.g. hour)","Active",""].map(h=><div key={h} className="lbl" style={{margin:0}}>{h}</div>)}</div>
+      {ad.map(r=>(
+        <div key={r.id} style={{display:"grid",gridTemplateColumns:"2fr 110px 2.4fr 110px 70px 80px",gap:"10px",padding:"8px 14px",borderBottom:"1px solid var(--border)",alignItems:"center",opacity:val(r,"active")?1:.55}}>
+          <input style={inp} value={val(r,"name")} onChange={e=>set(r,"name",e.target.value)}/>
+          <input style={inp} type="number" value={val(r,"price")} onChange={e=>set(r,"price",e.target.value)}/>
+          <input style={inp} value={val(r,"description")} onChange={e=>set(r,"description",e.target.value)}/>
+          <input style={inp} value={val(r,"per_unit")} onChange={e=>set(r,"per_unit",e.target.value)} placeholder="—"/>
+          <Toggle on={!!val(r,"active")} set={v=>set(r,"active",v)}/>
+          <button className="btn b-gold" disabled={!dirty(r)||busy===r.id} onClick={()=>save("dj_addons",r)} style={{padding:"6px 12px",fontSize:"12px"}}>{busy===r.id?"…":"Save"}</button>
+        </div>
+      ))}
+    </div></div>
+  </div>);
+}
+
 // PayToggle — must live OUTSIDE AdminDashboard so inputs don't reset on every keystroke
 function PayToggle({id,label,icon,desc,field,placeholder,lps,setLps,setPdirty}){
   const on=lps.methods?.[id];
@@ -938,7 +1066,7 @@ function PayToggle({id,label,icon,desc,field,placeholder,lps,setLps,setPdirty}){
 // ════════════════════════════════════════════════
 // ADMIN DASHBOARD
 // ════════════════════════════════════════════════
-function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,onSelectEvent,onNewEvent,onSavePaySettings,onAddClient,onLogout}){
+function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,catalog,onSaveCatalog,onSelectEvent,onNewEvent,onSavePaySettings,onAddClient,onLogout}){
   const clients=profiles.filter(p=>!p.is_admin);
   const[tab,setTab]=useState("calendar");
   const[filter,setFilter]=useState({status:"all",type:"all",search:"",uid:"all"});
@@ -1000,13 +1128,14 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,onS
 
       {/* Tabs */}
       <div style={{display:"flex",borderBottom:"2px solid var(--border)",marginBottom:"22px",overflowX:"auto"}}>
-        {[["calendar","Calendar"],["list","Events"],["clients","Clients"],["payments","Payments"]].map(([t,l])=>(
+        {[["calendar","Calendar"],["list","Events"],["clients","Clients"],["payments","Payments"],["packages","Packages"]].map(([t,l])=>(
           <button key={t} className={`tab ${tab===t?"on":"off"}`} onClick={()=>setTab(t)}>{l}</button>
         ))}
       </div>
 
       {/* Calendar tab */}
       {tab==="calendar"&&<div className="card" style={{padding:"24px"}}><CalendarView events={allEvents} onSelect={onSelectEvent}/></div>}
+      {tab==="packages"&&<CatalogEditor catalog={catalog} onSave={onSaveCatalog}/>}
 
       {/* Events list tab */}
       {tab==="list"&&<div>
@@ -1240,6 +1369,7 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
           </div>
           <button className="btn b-purple" onClick={saveCtrl} style={{padding:"10px 20px",fontSize:"13px",flexShrink:0}}>{saved?"✓ Saved!":"Save Changes"}</button>
         </div>
+        {event.packageName&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid var(--pbdr)",fontSize:"12.5px",color:"var(--body)"}}><strong style={{color:"var(--ink)"}}>{event.packageName}</strong>{num(event.packageHours)?` · ${num(event.packageHours)+(num(event.extraHours)||0)} hrs`:""}{(event.addons||[]).length?` · ${event.addons.map(a=>a.name).join(", ")}`:""}{num(event.depositAmount)!=null?` · Deposit ${money(event.depositAmount)}`:""} <span style={{color:"var(--muted)"}}>(change with Edit Event Details)</span></div>}
         {owner&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid var(--pbdr)",fontSize:"12px",color:"var(--purple)",opacity:.85}}>Account: <strong>{owner.name||owner.email}</strong> ({owner.email}){event.createdAt&&` · Submitted ${fShort(event.createdAt)}`}</div>}
       </div>
 
@@ -1424,7 +1554,7 @@ function buildEmails(ev, reqs, ps, pays){
   return [
     {id:"booking",label:"Booking confirmation",
      subject:`You're booked! ${name} — ${fShort(ev.eventDate)||"date TBD"}`,
-     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}\n${total?`\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Your invoice and contract are there too, ready to view or download. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
+     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}${ev.packageName?`\nPackage: ${ev.packageName}${num(ev.packageHours)?` (${num(ev.packageHours)+(num(ev.extraHours)||0)} hours)`:""}`:""}${(ev.addons||[]).length?`\nAdd-ons: ${ev.addons.map(a=>a.name).join(", ")}`:""}\n${total?`\nDeposit to reserve your date: ${money(num(ev.depositAmount)??200)}\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Your invoice and contract are there too, ready to view or download. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
     {id:"planning",label:"Planning reminder",
      subject:`Planning reminder: ${name} — details due ${planDue}`,
      body:`Hi ${first},\n\nYour event is coming up on ${fDate(ev.eventDate)}! To make sure everything goes exactly how you want it, please finish your planner by ${planDue}.\n\n${missing.length?`Here's what's still open:\n${missing.map(m=>`  • ${m}`).join("\n")}`:"Everything looks complete — please give it one last look to make sure it's all correct."}\n\nYou can update everything in your portal: ${PORTAL}\n\n${sign}`},
@@ -1529,7 +1659,8 @@ function InvoiceView({event,payRequests,payments,onClose}){
   const pays=(payments||[]).filter(p=>p.eventId===event.id).sort((a,b)=>(a.paidOn||"").localeCompare(b.paidOn||""));
   const m=meta(event.eventType);
   const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
-  const lines=event.totalAmount?[{id:"svc",label:`DJ services — ${m.label}`,amount:total}]:reqs;
+  const lines=billLines(event,reqs);
+  const deposit=num(event.depositAmount)??200;
   const paid=pays.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const balance=Math.max(0,total-paid);
   const invoiceNum=`INV-${event.id?.slice(-6).toUpperCase()||"000000"}`;
@@ -1625,7 +1756,7 @@ function InvoiceView({event,payRequests,payments,onClose}){
 
           {/* Payment note */}
           <div style={{padding:"16px",background:"#f7f8fb",border:"1.5px solid #dde1eb",borderRadius:"8px",marginBottom:"32px",fontSize:"13px",color:"#6a7090",lineHeight:1.7}}>
-            <strong style={{color:"#1a1d2e"}}>Payment Instructions:</strong> The remaining balance must be paid by cash, bank (cashier's) check, or money order prior to setup on the day of the event. A $100 fee will be assessed for all returned checks. The $200.00 contract signing payment / deposit is non-refundable.
+            <strong style={{color:"#1a1d2e"}}>Payment Instructions:</strong> The remaining balance must be paid by cash, bank (cashier's) check, or money order prior to setup on the day of the event. A $100 fee will be assessed for all returned checks. The {money(deposit)} contract signing payment / deposit is non-refundable.
           </div>
 
           {/* Footer */}
@@ -1646,8 +1777,8 @@ function ContractView({event,payRequests,onClose}){
   const brand=getBrand();
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
   const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
-  const lines=event.totalAmount?[{id:"svc",label:`DJ services — ${meta(event.eventType).label}`,amount:total}]:reqs;
-  const deposit=200.00;
+  const lines=billLines(event,reqs);
+  const deposit=num(event.depositAmount)??200;
   const [clientSig,setClientSig]=useState("");
   const [clientDate,setClientDate]=useState("");
   const [dmSig,setDmSig]=useState("");
@@ -1746,7 +1877,7 @@ function ContractView({event,payRequests,onClose}){
               ["7. Cancellation",""],
               ["7.1","This agreement cannot be canceled except by mutual written consent of both the client and "+brand.name+"."],
               ["7.2","If cancellation is initiated by the client in writing and agreed to by "+brand.name+" in writing, the client shall be required to pay any unrecoverable costs already incurred."],
-              ["7.3","Up to 45 days prior to the event: "+brand.name+" is entitled to the Contract Signing Payment ($200.00)."],
+              ["7.3","Up to 45 days prior to the event: "+brand.name+" is entitled to the Contract Signing Payment ("+money(deposit)+")."],
               ["7.4","Between 30 days and 45 days prior to the event: "+brand.name+" is entitled to 75% of the amount for services."],
               ["7.5","If the event is cancelled 30 days or less from the date of the event, "+brand.name+" is entitled to 100% of the amount for services."],
               ["8. Photo Montages",""],
@@ -1808,6 +1939,7 @@ function App(){
   const[pays,setPays]     =useState([]);
   const[selId,setSelId]   =useState(null);
   const[notesMap,setNotesMap]=useState({}); // admin-only notes, keyed by event id
+  const[catalog,setCatalog]=useState({packages:[],addons:[]});
 
   // ── Load session on mount ────────────────────
   useEffect(()=>{
@@ -1834,10 +1966,23 @@ function App(){
     })();
   },[]);
 
+  const loadCatalog=async()=>{
+    const[{data:pk},{data:ad}]=await Promise.all([DB.from("dj_packages").select("*").order("sort"),DB.from("dj_addons").select("*").order("sort")]);
+    setCatalog({packages:pk||[],addons:ad||[]});
+  };
+  const handleSaveCatalog=async(table,r)=>{
+    const{_new,...row}=r;
+    for(const k of ["price","hours","overtime_rate","deposit"]) if(k in row) row[k]=num(row[k])||0;
+    if("per_unit" in row) row.per_unit=(row.per_unit||"").trim()||null;
+    const{error}=await DB.from(table).upsert(row,{onConflict:"id"});
+    if(error){alert(`Couldn't save: ${error.message}`);return false;}
+    await loadCatalog();return true;
+  };
   const loadUserData=async u=>{
     // Load payment settings (all users need to see payment methods)
     const{data:ps}=await DB.from("dj_payment_settings").select("*").order("updated_at",{ascending:false}).limit(1).single();
     if(ps){setPaySet({venmo:ps.venmo||"",cashApp:ps.cash_app||"",zelle:ps.zelle||"",paypalMe:ps.paypal_me||"",methods:ps.methods||{}});}else{setPaySet(BLANK_PAY);}
+    await loadCatalog();
 
     if(u.is_admin){
       const{data:evs}=await DB.from("dj_events").select("*").order("event_date",{ascending:true,nullsFirst:false});
@@ -1981,10 +2126,10 @@ function App(){
     {screen==="reset"      && <ResetPassword onDone={handleResetDone}/>}
     {screen==="dash"       && <Dashboard user={user} events={events} onView={id=>{setSelId(id);setScreen("view");}} onEdit={id=>{setSelId(id);setScreen("edit");}} onLogout={handleLogout}/>}
     {screen==="edit"       && <EventForm event={sel} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("view")}/>}
-    {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} payments={pPays} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
-    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} payments={pPays} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
-    {screen==="admin_new"  && <EventForm event={null} userId={newFor} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin")}/>}
-    {screen==="admin_edit" && <EventForm event={sel} userId={sel?.userId} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin_view")}/>}
+    {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} payments={pPays} catalog={catalog} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
+    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} payments={pPays} catalog={catalog} onSaveCatalog={handleSaveCatalog} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
+    {screen==="admin_new"  && <EventForm event={null} userId={newFor} clients={profiles.filter(p=>!p.is_admin)} catalog={catalog} onSave={handleSaveEvent} onCancel={()=>setScreen("admin")}/>}
+    {screen==="admin_edit" && <EventForm event={sel} userId={sel?.userId} clients={profiles.filter(p=>!p.is_admin)} catalog={catalog} onSave={handleSaveEvent} onCancel={()=>setScreen("admin_view")}/>}
     {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} notes={notesMap[sel?.id]} profiles={profiles} paySettings={paySet} payRequests={pReqs} payments={pPays} onAddPayment={handleAddPayment} onDeletePayment={handleDeletePayment} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
   </>);
 }
