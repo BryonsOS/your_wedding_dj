@@ -125,6 +125,7 @@ const SB_URL    = "https://mhktyejanikvdnjbndgi.supabase.co";
 const SB_ANON   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oa3R5ZWphbmlrdmRuamJuZGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjAyNzcsImV4cCI6MjA5NTM5NjI3N30.OtahkiwKHx-tth18cFZHHKMLGG1ZKjxZT2M5baf0sUs";
 const BRAND     = "YourWeddingsDJ.com";
 const PORTAL    = "https://yourweddingsdj.com";
+const REVIEW_URL = ""; // ← paste your Google / The Knot review link here; used in the thank-you email
 // Admin = any Supabase account you set is_admin=true on
 // ════════════════════════════════════════════════
 
@@ -1103,6 +1104,7 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
   const[rf,setRf]=useState({amount:"",label:"",dueDate:""});
   const[showInvoice,setShowInvoice]=useState(false);
   const[showContract,setShowContract]=useState(false);
+  const[showEmails,setShowEmails]=useState(false);
   const owner=profiles.find(p=>p.id===event.userId);
   const myReqs=(payRequests||[]).filter(r=>r.eventId===event.id);
   const ps=paySettings||BLANK_PAY;
@@ -1115,6 +1117,7 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
   return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
     {showInvoice&&<InvoiceView event={event} payRequests={myReqs} onClose={()=>setShowInvoice(false)}/>}
     {showContract&&<ContractView event={event} payRequests={myReqs} onClose={()=>setShowContract(false)}/>}
+    {showEmails&&<EmailTemplates event={event} payRequests={myReqs} paySettings={ps} onClose={()=>setShowEmails(false)}/>}
     <TopNav title="Admin: Event Detail" back={onBack} badge="Admin"/>
     <div style={{maxWidth:"960px",margin:"0 auto",padding:"28px 24px"}}>
       <Hero ev={event}/>
@@ -1125,6 +1128,7 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
         {gcal&&<a href={gcal} target="_blank" rel="noreferrer" className="btn b-out" style={{fontSize:"13px"}}>📅 Add to Google Calendar</a>}
         <button className="btn b-out" onClick={()=>setShowInvoice(true)} style={{fontSize:"13px"}}>🧾 Generate Invoice</button>
         <button className="btn b-out" onClick={()=>setShowContract(true)} style={{fontSize:"13px"}}>📄 Generate Contract</button>
+        <button className="btn b-out" onClick={()=>setShowEmails(true)} style={{fontSize:"13px"}}>✉️ Emails</button>
       </div>
 
       {/* Admin controls */}
@@ -1205,20 +1209,17 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
 // ════════════════════════════════════════════════
 // BRAND HELPER
 // ════════════════════════════════════════════════
-function getBrand(eventType){
-  if(eventType==="wedding") return {
+// One co-branded identity for every event type. `legal` is the contracting party.
+function getBrand(){
+  return {
     name:"YourWeddingsDJ.com",
+    tagline:"a Directmix Entertainment company",
+    legal:"Directmix Entertainment d/b/a YourWeddingsDJ.com",
     address:"Waterford, MI 48328",
+    mailing:"237 Fernbarry, Waterford, MI 48328",
     phone:"(248) 390-4576",
     email:"bryon@yourweddingsdj.com",
     website:"www.yourweddingsdj.com",
-  };
-  return {
-    name:"Directmix Entertainment",
-    address:"237 Fernbarry, Waterford, MI 48328",
-    phone:"(248) 390-4576",
-    email:"directmixentertainment@gmail.com",
-    website:"www.directmixentertainment.com",
   };
 }
 
@@ -1251,10 +1252,101 @@ function gcalLink(event){
 }
 
 // ════════════════════════════════════════════════
+// PRE-WRITTEN EMAILS (admin) — built from the event's details
+// ════════════════════════════════════════════════
+const songSlots = t => ({
+  wedding:[["First Dance","firstDance"],["Father / Daughter Dance","fatherDaughter"],["Mother / Son Dance","motherSon"],["Bridal Party Entrance","partyEntrance"],["Grand Entrance","grandEntrance"],["Cake Cutting","cakeCutting"],["Bouquet Toss","bouquet"],["Garter","garter"],["Last Dance","lastDance"]],
+  bar_mitzvah:[["Grand Entrance","grandEntrance"],["Hora","hora"],["Last Dance","lastDance"]],
+  bat_mitzvah:[["Grand Entrance","grandEntrance"],["Hora","hora"],["Last Dance","lastDance"]],
+  school_dance:[["Grand Entrance","grandEntrance"],["Coronation Song","opening"],["Last Dance","lastDance"]],
+  birthday:[["Grand Entrance","grandEntrance"],["Cake Cutting","cakeCutting"],["Opening Song","opening"],["Last Dance","lastDance"]],
+  sweet_16:[["Grand Entrance","grandEntrance"],["Cake Cutting","cakeCutting"],["Opening Song","opening"],["Last Dance","lastDance"]],
+}[t] || [["Grand Entrance","grandEntrance"],["Opening Song","opening"],["Last Dance","lastDance"]]);
+
+function buildEmails(ev, reqs, ps){
+  const b=getBrand();
+  const first=(ev.clientName||"").trim().split(/\s+/)[0]||"there";
+  const name=ev.eventName||meta(ev.eventType).label;
+  const when=`${fDate(ev.eventDate)}${ev.startTime?`, ${f12(ev.startTime)}${ev.endTime?` – ${f12(ev.endTime)}`:""}`:""}`;
+  const venue=[ev.venueName,[ev.venueAddress,ev.venueCity,ev.venueState].filter(Boolean).join(", ")].filter(Boolean).join(" — ")||"TBD";
+  const total=parseFloat(ev.totalAmount)||0;
+  const paid=reqs.filter(r=>r.status==="paid").reduce((t,r)=>t+(parseFloat(r.amount)||0),0);
+  const balance=Math.max(0,total-paid);
+  const pending=reqs.filter(r=>r.status!=="paid");
+  const sign=`Thanks,\nBryon\n${b.name} — ${b.tagline}\n${b.phone} · ${b.email}`;
+  const songs=songSlots(ev.eventType).map(([l,k])=>[l,ev[k+"Song"],ev[k+"Artist"]]);
+  const songLine=([l,s,a])=>`  • ${l}: ${s}${a?` — ${a}`:""}`;
+  const planDue=ev.eventDate?fDate(new Date(new Date(ev.eventDate+"T00:00:00").getTime()-7*864e5).toISOString().slice(0,10)):"one week before the event";
+  const methods=[
+    ps.methods?.venmo&&ps.venmo&&`  • Venmo: @${ps.venmo.replace("@","")}`,
+    ps.methods?.cashapp&&ps.cashApp&&`  • Cash App: ${ps.cashApp.startsWith("$")?ps.cashApp:"$"+ps.cashApp}`,
+    ps.methods?.zelle&&ps.zelle&&`  • Zelle: ${ps.zelle}`,
+    ps.methods?.paypal&&ps.paypalMe&&`  • PayPal: paypal.me/${ps.paypalMe}`,
+  ].filter(Boolean);
+  const missing=[
+    !ev.venueAddress&&"Venue street address",
+    !ev.venueContact&&"Venue coordinator name & phone",
+    (!ev.timeline?.length||ev.timeline.some(t=>!t.time))&&"Times for each part of the timeline",
+    ...songs.filter(([,s])=>!s).map(([l])=>`${l} song`),
+    !ev.mustPlay?.some(x=>x.song)&&"Must-play songs",
+    !ev.doNotPlay?.some(x=>x.song)&&"Do-not-play list",
+    !ev.vibes?.length&&"Music vibe / genres",
+  ].filter(Boolean);
+
+  return [
+    {id:"booking",label:"Booking confirmation",
+     subject:`You're booked! ${name} — ${fShort(ev.eventDate)||"date TBD"}`,
+     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}\n${total?`\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
+    {id:"planning",label:"Planning reminder",
+     subject:`Planning reminder: ${name} — details due ${planDue}`,
+     body:`Hi ${first},\n\nYour event is coming up on ${fDate(ev.eventDate)}! To make sure everything goes exactly how you want it, please finish your planner by ${planDue}.\n\n${missing.length?`Here's what's still open:\n${missing.map(m=>`  • ${m}`).join("\n")}`:"Everything looks complete — please give it one last look to make sure it's all correct."}\n\nYou can update everything in your portal: ${PORTAL}\n\n${sign}`},
+    {id:"payment",label:"Payment reminder",
+     subject:`Payment reminder: ${name}`,
+     body:`Hi ${first},\n\nA friendly reminder about payment for ${name} on ${fDate(ev.eventDate)}.\n\n${pending.length?pending.map(r=>`  • ${r.label}: ${money(r.amount)}${r.dueDate?` (due ${fShort(r.dueDate)})`:""}`).join("\n")+"\n\n":""}${total?`Event total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n\n`:""}${methods.length?`You can pay any of these ways:\n${methods.join("\n")}\n\nPayment links are also on your event page in the portal: ${PORTAL}\n\n`:`Payment details are on your event page in the portal: ${PORTAL}\n\n`}Any remaining balance is due before setup on the day of the event.\n\n${sign}`},
+    {id:"final",label:"Final details (week of)",
+     subject:`Final details for ${name} — ${fShort(ev.eventDate)}`,
+     body:`Hi ${first},\n\nWe're almost there! Here's the plan we have on file — please reply if anything needs to change.\n\nDate & time: ${when}\nVenue: ${venue}${ev.venueContact?`\nVenue coordinator: ${ev.venueContact}${ev.venuePhone?` (${ev.venuePhone})`:""}`:""}\n\nTimeline:\n${ev.timeline?.length?ev.timeline.map(t=>`  • ${t.time?f12(t.time):"—"}  ${t.label}${t.note?` (${t.note})`:""}`).join("\n"):"  • (not filled in yet)"}\n\nSpecial songs:\n${songs.filter(([,s])=>s).map(songLine).join("\n")||"  • (none chosen yet — we'll pick great options)"}\n${ev.doNotPlay?.some(x=>x.song)?`\nDo not play:\n${ev.doNotPlay.filter(x=>x.song).map(x=>`  • ${x.song}${x.artist?` — ${x.artist}`:""}`).join("\n")}\n`:""}\nWe'll arrive about 90 minutes before the start time to set up.${balance>0?` Your remaining balance of ${money(balance)} is due before setup.`:""}\n\n${sign}`},
+    {id:"thanks",label:"Thank you + review",
+     subject:`Thank you, ${first}!`,
+     body:`Hi ${first},\n\nThank you for having us at ${name}! It was a pleasure being part of your celebration, and we hope you and your guests had an amazing time.\n\nIf you have a minute, a quick review would mean the world to us${REVIEW_URL?`:\n${REVIEW_URL}`:" — on Google or The Knot, wherever you like."}\n\nAnd if friends or family ever need a DJ, we'd love to help.\n\n${sign}`},
+  ];
+}
+
+function EmailTemplates({event,payRequests,paySettings,onClose}){
+  const list=buildEmails(event,payRequests||[],paySettings||BLANK_PAY);
+  const[sel,setSel]=useState(list[0].id);
+  const[edits,setEdits]=useState({}); // keep the admin's tweaks per template while the modal is open
+  const base=list.find(e=>e.id===sel);
+  const cur={...base,...edits[sel]};
+  const upd=(k,v)=>setEdits(p=>({...p,[sel]:{...p[sel],[k]:v}}));
+  const mailto=`mailto:${encodeURIComponent(event.email||"")}?subject=${encodeURIComponent(cur.subject)}&body=${encodeURIComponent(cur.body)}`;
+  return(
+    <Modal close={onClose} w={760}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
+        <h3 style={{fontFamily:"var(--ff)",fontSize:"22px",fontWeight:400,color:"var(--ink)"}}>Emails</h3>
+        <button className="btn b-ghost" onClick={onClose} style={{fontSize:"18px",padding:"4px 8px"}}>✕</button>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"16px"}}>
+        {list.map(e=><div key={e.id} className={`vc ${sel===e.id?"vc-on":"vc-off"}`} onClick={()=>setSel(e.id)}>{e.label}</div>)}
+      </div>
+      <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">To</label><input value={event.email||""} readOnly placeholder="No client email on file"/></div>
+      <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">Subject</label><input value={cur.subject} onChange={e=>upd("subject",e.target.value)}/></div>
+      <div className="fg" style={{marginBottom:"14px"}}><label className="lbl">Message</label><textarea value={cur.body} onChange={e=>upd("body",e.target.value)} style={{minHeight:"320px",fontSize:"13px",lineHeight:1.6}}/></div>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <a href={mailto} className="btn b-gold" style={{textDecoration:"none"}}>Open in Email App</a>
+        <CopyBtn text={cur.body} label="Copy Message"/>
+        <CopyBtn text={cur.subject} label="Copy Subject"/>
+        {edits[sel]&&<button className="btn b-ghost" onClick={()=>setEdits(p=>{const n={...p};delete n[sel];return n;})}>Reset</button>}
+      </div>
+    </Modal>
+  );
+}
+
+// ════════════════════════════════════════════════
 // INVOICE PRINT VIEW
 // ════════════════════════════════════════════════
 function InvoiceView({event,payRequests,onClose}){
-  const brand=getBrand(event.eventType);
+  const brand=getBrand();
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
   const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
   const paid=reqs.filter(r=>r.status==="paid").reduce((s,r)=>s+parseFloat(r.amount||0),0);
@@ -1273,7 +1365,8 @@ function InvoiceView({event,payRequests,onClose}){
           {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"40px",paddingBottom:"28px",borderBottom:"3px solid #111111"}}>
             <div>
-              <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"28px",fontWeight:400,color:"#1a1d2e",marginBottom:"6px"}}>{brand.name}</h1>
+              <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"28px",fontWeight:400,color:"#1a1d2e",marginBottom:"2px"}}>{brand.name}</h1>
+              <div style={{fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",color:"#6a7090",marginBottom:"8px"}}>{brand.tagline}</div>
               <div style={{fontSize:"13px",color:"#6a7090",lineHeight:1.8}}>
                 <div>{brand.address}</div>
                 <div>{brand.phone}</div>
@@ -1375,7 +1468,7 @@ function InvoiceView({event,payRequests,onClose}){
 // CONTRACT PRINT VIEW
 // ════════════════════════════════════════════════
 function ContractView({event,payRequests,onClose}){
-  const brand=getBrand(event.eventType);
+  const brand=getBrand();
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
   const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
   const lines=event.totalAmount?[{id:"svc",label:`DJ services — ${meta(event.eventType).label}`,amount:total}]:reqs;
@@ -1398,11 +1491,11 @@ function ContractView({event,payRequests,onClose}){
           <div style={{textAlign:"center",marginBottom:"32px",paddingBottom:"24px",borderBottom:"3px solid #111111"}}>
             <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"26px",fontWeight:400,color:"#1a1d2e",marginBottom:"8px"}}>EVENT BOOKING CONTRACT</h1>
             <p style={{color:"#6a7090",fontSize:"13px"}}>PLEASE SIGN AND RETURN THIS CONTRACT TO:</p>
-            <p style={{fontWeight:600,color:"#1a1d2e",marginTop:"6px",lineHeight:1.8}}>{brand.name}<br/>{brand.address}<br/>Tel: {brand.phone}<br/>Email: {brand.email}</p>
+            <p style={{fontWeight:600,color:"#1a1d2e",marginTop:"6px",lineHeight:1.8}}>{brand.legal}<br/>{brand.mailing}<br/>Tel: {brand.phone}<br/>Email: {brand.email}</p>
           </div>
 
           {/* Agreement */}
-          <p style={{marginBottom:"16px"}}>Agreement made between <strong>{brand.name}</strong> and:</p>
+          <p style={{marginBottom:"16px"}}>Agreement made between <strong>{brand.legal}</strong> (“{brand.name}”) and:</p>
           <div style={{background:"#f7f8fb",border:"1.5px solid #dde1eb",borderRadius:"8px",padding:"16px",marginBottom:"20px",lineHeight:2}}>
             <div><strong>{event.clientName||"___________________"}</strong></div>
             <div style={{color:"#6a7090"}}>{event.address||"___________________"}</div>
