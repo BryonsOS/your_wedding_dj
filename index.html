@@ -167,7 +167,7 @@ const STEPS = [{l:"Event Type",i:"1"},{l:"Contact",i:"2"},{l:"Venue",i:"3"},{l:"
 const BLANK_PAY = {paypalMe:"",venmo:"",cashApp:"",zelle:"",methods:{paypal:false,venmo:false,cashapp:false,zelle:false}};
 
 // ── Helpers ────────────────────────────────────
-const uid   = () => `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+const uid   = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 const meta  = id  => ET.find(t=>t.id===id) || {label:"Event",e:"🎵"};
 const copy  = t   => { try{navigator.clipboard.writeText(t);}catch{const el=document.createElement("textarea");el.value=t;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);} };
 
@@ -202,7 +202,7 @@ const toRow = ev => ({
   client_name:ev.clientName, email:ev.email, phone:ev.phone, address:ev.address,
   venue_name:ev.venueName, venue_address:ev.venueAddress, venue_city:ev.venueCity,
   venue_state:ev.venueState, venue_zip:ev.venueZip, venue_contact:ev.venueContact,
-  venue_phone:ev.venuePhone, guest_count:ev.guestCount, timeline:ev.timeline,
+  venue_phone:ev.venuePhone, guest_count:parseInt(ev.guestCount,10)||null, timeline:ev.timeline,
   candle_lighting:ev.candleLighting, vibes:ev.vibes, must_play:ev.mustPlay, do_not_play:ev.doNotPlay,
   first_dance_song:ev.firstDanceSong, first_dance_artist:ev.firstDanceArtist,
   father_daughter_song:ev.fatherDaughterSong, father_daughter_artist:ev.fatherDaughterArtist,
@@ -216,6 +216,7 @@ const toRow = ev => ({
   hora_song:ev.horaSong, hora_artist:ev.horaArtist,
   opening_song:ev.openingSong, opening_artist:ev.openingArtist,
   special_requests:ev.specialRequests, admin_notes:ev.adminNotes, status:ev.status,
+  updated_at:new Date().toISOString(),
 });
 
 const fromRow = r => !r ? null : ({
@@ -224,7 +225,7 @@ const fromRow = r => !r ? null : ({
   clientName:r.client_name||"", email:r.email||"", phone:r.phone||"", address:r.address||"",
   venueName:r.venue_name||"", venueAddress:r.venue_address||"", venueCity:r.venue_city||"",
   venueState:r.venue_state||"", venueZip:r.venue_zip||"", venueContact:r.venue_contact||"",
-  venuePhone:r.venue_phone||"", guestCount:r.guest_count||"",
+  venuePhone:r.venue_phone||"", guestCount:r.guest_count!=null?String(r.guest_count):"",
   timeline:r.timeline||[],
   candleLighting:r.candle_lighting||Array.from({length:13},(_,i)=>({n:i+1,honoree:"",song:"",artist:""})),
   vibes:r.vibes||[], mustPlay:r.must_play||[{song:"",artist:""}], doNotPlay:r.do_not_play||[{song:"",artist:""}],
@@ -735,7 +736,7 @@ function EventForm({event,userId,clients,onSave,onCancel}){
     }
     // Admin edits keep the event's current status (set it in Admin Controls); client saves draft/submit as before
     const status=admin&&event?.id?data.status:(draft?"draft":"submitted");
-    setErr("");setSaving(true);await onSave({...data,status,id:data.id||uid(),userId:data.userId||userId});setSaving(false);
+    setErr("");setSaving(true);const e=await onSave({...data,status,id:data.id||uid(),userId:data.userId||userId});setSaving(false);if(e)setErr(e);
   };
   const steps=[<Step1 d={data} u={u}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
   return(
@@ -1577,19 +1578,18 @@ function App(){
 
   const handleSaveEvent=async ev=>{
     const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();
-    if(!error&&data){
-      const mapped=fromRow(data);
-      setEvents(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
-      if(user?.is_admin)setAllEvs(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
-      setSelId(mapped.id);
-      setScreen(user?.is_admin?"admin_view":"view");
-    }
+    if(error||!data)return `Couldn't save the event: ${error?.message||"no response from the database"}`;
+    const mapped=fromRow(data);
+    setEvents(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
+    if(user?.is_admin)setAllEvs(p=>p.some(e=>e.id===mapped.id)?p.map(e=>e.id===mapped.id?mapped:e):[...p,mapped]);
+    setSelId(mapped.id);
+    setScreen(user?.is_admin?"admin_view":"view");
   };
 
-  const handleDelete=async id=>{await DB.from("dj_events").delete().eq("id",id);setEvents(p=>p.filter(e=>e.id!==id));};
+  const handleDelete=async id=>{const{error}=await DB.from("dj_events").delete().eq("id",id);if(error){alert(`Couldn't delete: ${error.message}`);return;}setEvents(p=>p.filter(e=>e.id!==id));setAllEvs(p=>p.filter(e=>e.id!==id));};
   const[newFor,setNewFor]=useState(null); // client id preselected when admin starts a new event
-  const handleAdminSave=async ev=>{const{data}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}};
-  const handleSavePaySettings=async s=>{await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});setPaySet(s);};
+  const handleAdminSave=async ev=>{const{data,error}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();if(error){alert(`Couldn't save: ${error.message}`);return;}if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}};
+  const handleSavePaySettings=async s=>{const{error}=await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});if(error){alert(`Couldn't save payment settings: ${error.message}`);return;}setPaySet(s);};
 
   const handleAddClient=async(name,email,password)=>{
     const{data,error}=await SIGNUP_DB.auth.signUp({email,password,options:{data:{name}}});
@@ -1604,12 +1604,13 @@ function App(){
   };
 
   const handleAddPayReq=async req=>{
-    await DB.from("dj_payment_requests").insert({id:req.id,event_id:req.eventId,amount:req.amount,label:req.label,due_date:req.dueDate||null,status:req.status});
+    const{error}=await DB.from("dj_payment_requests").insert({id:req.id,event_id:req.eventId,amount:parseFloat(req.amount)||0,label:req.label,due_date:req.dueDate||null,status:req.status});
+    if(error)alert(`Couldn't add payment request: ${error.message}`);
     const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
   };
   const handleUpdatePayReq=async req=>{
-    if(req._delete){await DB.from("dj_payment_requests").delete().eq("id",req.id);}
-    else{await DB.from("dj_payment_requests").update({status:req.status}).eq("id",req.id);}
+    const{error}=req._delete?await DB.from("dj_payment_requests").delete().eq("id",req.id):await DB.from("dj_payment_requests").update({status:req.status}).eq("id",req.id);
+    if(error)alert(`Couldn't update payment request: ${error.message}`);
     const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
   };
 
