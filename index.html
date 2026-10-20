@@ -179,6 +179,9 @@ const f12 = t => {
 };
 const fDate  = d => { if(!d) return "TBD"; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}); }catch{return d;} };
 const money  = n => "$"+(parseFloat(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const PAY_METHODS = ["Cash","Check","Cashier's check","Money order","Venmo","Cash App","Zelle","PayPal","Card","Other"];
+const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const paidFor = (eventId,pays) => (pays||[]).filter(p=>p.eventId===eventId).reduce((t,p)=>t+(parseFloat(p.amount)||0),0);
 const fShort = d => { if(!d) return ""; try{ return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }catch{return d;} };
 
 const blankEv = () => ({
@@ -796,8 +799,10 @@ function EventForm({event,userId,clients,onSave,onCancel}){
 // ════════════════════════════════════════════════
 // CLIENT EVENT VIEW
 // ════════════════════════════════════════════════
-function EventView({event,paySettings,payRequests,onEdit,onBack}){
+function EventView({event,paySettings,payRequests,payments,onEdit,onBack}){
+  const[doc,setDoc]=useState(null); // "invoice" | "contract"
   if(!event) return null;
+  const myPays=(payments||[]).filter(p=>p.eventId===event.id).sort((a,b)=>(b.paidOn||"").localeCompare(a.paidOn||""));
   const m=meta(event.eventType);
   const ps=paySettings||BLANK_PAY;
   const pending=(payRequests||[]).filter(r=>r.eventId===event.id&&r.status!=="paid");
@@ -805,8 +810,17 @@ function EventView({event,paySettings,payRequests,onEdit,onBack}){
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <TopNav title="Event Details" back={onBack} right={<button className="btn b-gold" onClick={onEdit} style={{padding:"8px 18px",fontSize:"13px"}}>Edit</button>}/>
       <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
+        {doc==="invoice"&&<InvoiceView event={event} payRequests={payRequests} payments={payments} onClose={()=>setDoc(null)}/>}
+        {doc==="contract"&&<ContractView event={event} payRequests={payRequests} onClose={()=>setDoc(null)}/>}
         <Hero ev={event}/>
-        {event.totalAmount&&(()=>{const paid=(payRequests||[]).filter(r=>r.eventId===event.id&&r.status==="paid").reduce((t,r)=>t+(parseFloat(r.amount)||0),0);const tot=parseFloat(event.totalAmount)||0;return(
+        {event.totalAmount&&<div className="card" style={{marginBottom:"18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px",flexWrap:"wrap",padding:"16px 24px"}}>
+          <span className="lbl" style={{margin:0}}>Your Documents</span>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+            <button className="btn b-out" onClick={()=>setDoc("invoice")} style={{fontSize:"13px"}}>🧾 View Invoice</button>
+            <button className="btn b-out" onClick={()=>setDoc("contract")} style={{fontSize:"13px"}}>📄 View Contract</button>
+          </div>
+        </div>}
+        {event.totalAmount&&(()=>{const paid=paidFor(event.id,payments);const tot=parseFloat(event.totalAmount)||0;return(
           <div className="card" style={{marginBottom:"18px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"14px"}}>
             {[["Event Total",money(tot),"var(--ink)"],["Paid",money(paid),"var(--green)"],["Balance",money(Math.max(0,tot-paid)),"var(--purple)"]].map(([l,v,c])=>(
               <div key={l}><div className="lbl">{l}</div><div style={{fontFamily:"var(--ff)",fontSize:"24px",color:c}}>{v}</div></div>
@@ -827,6 +841,12 @@ function EventView({event,paySettings,payRequests,onEdit,onBack}){
             </div>
           );})}
         </div>}
+        {myPays.length>0&&<Sec title="Payment History">{myPays.map(p=>(
+          <div key={p.id} style={{display:"flex",justifyContent:"space-between",gap:"10px",padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:"13px"}}>
+            <span style={{color:"var(--muted)",width:"110px",flexShrink:0}}>{fShort(p.paidOn)}</span>
+            <span style={{flex:1,color:"var(--body)"}}>{[p.note,p.method].filter(Boolean).join(" · ")||"Payment"}</span>
+            <span style={{color:"var(--green)",fontWeight:600}}>{money(p.amount)}</span>
+          </div>))}</Sec>}
         <Sec title="Contact Information"><Row l="Name" v={event.clientName}/><Row l="Email" v={event.email}/><Row l="Phone" v={event.phone}/><Row l="Address" v={event.address}/></Sec>
         <Sec title="Venue"><Row l="Venue" v={event.venueName}/><Row l="Address" v={[event.venueAddress,event.venueCity,event.venueState,event.venueZip].filter(Boolean).join(", ")||null}/><Row l="Coordinator" v={event.venueContact}/><Row l="Venue Phone" v={event.venuePhone}/></Sec>
         {event.timeline?.length>0&&<Sec title="Timeline">{event.timeline.map((item,i)=>(<div key={i} style={{display:"flex",gap:"14px",padding:"8px 0",borderBottom:i<event.timeline.length-1?"1px solid var(--border)":"none"}}><span style={{width:"66px",flexShrink:0,color:"var(--gold)",fontSize:"12.5px",fontWeight:600}}>{item.time?f12(item.time):"—"}</span><div><div style={{fontSize:"13px",color:"var(--ink)"}}>{item.label}</div>{item.note&&<div style={{fontSize:"12px",color:"var(--muted)"}}>{item.note}</div>}</div></div>))}</Sec>}
@@ -918,7 +938,7 @@ function PayToggle({id,label,icon,desc,field,placeholder,lps,setLps,setPdirty}){
 // ════════════════════════════════════════════════
 // ADMIN DASHBOARD
 // ════════════════════════════════════════════════
-function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEvent,onNewEvent,onSavePaySettings,onAddClient,onLogout}){
+function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,onSelectEvent,onNewEvent,onSavePaySettings,onAddClient,onLogout}){
   const clients=profiles.filter(p=>!p.is_admin);
   const[tab,setTab]=useState("calendar");
   const[filter,setFilter]=useState({status:"all",type:"all",search:"",uid:"all"});
@@ -1077,7 +1097,61 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
       </div>}
 
       {/* Payments tab */}
-      {tab==="payments"&&<div>
+      {tab==="payments"&&(()=>{
+        const pays=[...(payments||[])].sort((a,b)=>(b.paidOn||"").localeCompare(a.paidOn||""));
+        const evById=Object.fromEntries(allEvents.map(e=>[e.id,e]));
+        const t=todayISO(), ym=t.slice(0,7), yr=t.slice(0,4);
+        const sumWhere=f=>pays.filter(f).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+        const due=allEvents.map(e=>{const tot=parseFloat(e.totalAmount)||0;const pd=paidFor(e.id,pays);return{e,tot,pd,bal:Math.max(0,tot-pd)};}).filter(x=>x.tot>0&&x.bal>0).sort((a,b)=>(a.e.eventDate||"9").localeCompare(b.e.eventDate||"9"));
+        const pastDue=due.filter(x=>x.e.eventDate&&x.e.eventDate<t);
+        const csv=()=>{
+          const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+          const rows=[["Date","Event","Event Date","Client","Amount","Method","Reference","Note"],...pays.map(p=>{const e=evById[p.eventId]||{};return[p.paidOn,e.eventName,e.eventDate,e.clientName,p.amount,p.method,p.reference,p.note];})];
+          const url=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));
+          const a=document.createElement("a");a.href=url;a.download=`payments-${t}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),4000);
+        };
+        const th={fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--muted)"};
+        return(<div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px",marginBottom:"22px"}}>
+          <SBox l="Collected this month" v={money(sumWhere(p=>(p.paidOn||"").startsWith(ym)))} bg="var(--gbg2)" c="var(--green)"/>
+          <SBox l={`Collected ${yr}`} v={money(sumWhere(p=>(p.paidOn||"").startsWith(yr)))} bg="var(--panel)" c="var(--ink)"/>
+          <SBox l="Outstanding" v={money(due.reduce((s,x)=>s+x.bal,0))} bg="var(--pbg)" c="var(--purple)"/>
+          <SBox l="Past events owing" v={pastDue.length} bg={pastDue.length?"var(--rbg)":"var(--panel)"} c={pastDue.length?"var(--red)":"var(--body)"}/>
+        </div>
+
+        <h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)",marginBottom:"10px"}}>Balances Due</h3>
+        {due.length===0?<p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"26px"}}>Nothing outstanding. Events need an Event Total to show here.</p>:(
+          <div className="tbl-scroll" style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px",marginBottom:"26px"}}><div>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1.2fr 1fr 1fr 1fr",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>{["Event","Date","Total","Received","Balance"].map(h=><div key={h} style={th}>{h}</div>)}</div>
+            {due.map(({e,tot,pd,bal})=>{const past=e.eventDate&&e.eventDate<t;return(
+              <div key={e.id} onClick={()=>onSelectEvent(e)} style={{display:"grid",gridTemplateColumns:"2fr 1.2fr 1fr 1fr 1fr",gap:"12px",padding:"12px 18px",borderBottom:"1px solid var(--border)",cursor:"pointer",alignItems:"center"}}>
+                <div><div style={{fontSize:"13.5px",color:"var(--ink)"}}>{e.eventName||"Unnamed"}</div><div style={{fontSize:"11px",color:"var(--muted)"}}>{e.clientName}</div></div>
+                <div style={{fontSize:"13px",color:past?"var(--red)":"var(--body)"}}>{e.eventDate?fShort(e.eventDate):"—"}{past&&<div style={{fontSize:"10.5px",fontWeight:700,textTransform:"uppercase"}}>Past event</div>}</div>
+                <div style={{fontSize:"13px",color:"var(--body)"}}>{money(tot)}</div>
+                <div style={{fontSize:"13px",color:"var(--green)"}}>{money(pd)}</div>
+                <div style={{fontSize:"13.5px",fontWeight:700,color:past?"var(--red)":"var(--purple)"}}>{money(bal)}</div>
+              </div>);})}
+          </div></div>
+        )}
+
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px",gap:"10px",flexWrap:"wrap"}}>
+          <h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)"}}>Payment Log</h3>
+          {pays.length>0&&<button className="btn b-out" onClick={csv} style={{padding:"6px 14px",fontSize:"12px"}}>⬇ Export CSV</button>}
+        </div>
+        {pays.length===0?<p style={{fontSize:"13px",color:"var(--muted)",marginBottom:"30px"}}>No payments recorded yet. Record them from each event's page.</p>:(
+          <div className="tbl-scroll" style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px",marginBottom:"30px"}}><div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 2fr 1.2fr 1.6fr 1fr",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>{["Date","Event","Method","Note / Ref","Amount"].map(h=><div key={h} style={th}>{h}</div>)}</div>
+            {pays.map(p=>{const e=evById[p.eventId];return(
+              <div key={p.id} onClick={()=>e&&onSelectEvent(e)} style={{display:"grid",gridTemplateColumns:"1fr 2fr 1.2fr 1.6fr 1fr",gap:"12px",padding:"11px 18px",borderBottom:"1px solid var(--border)",cursor:e?"pointer":"default",alignItems:"center",fontSize:"13px"}}>
+                <div style={{color:"var(--muted)"}}>{fShort(p.paidOn)}</div>
+                <div><div style={{color:"var(--ink)"}}>{e?.eventName||"(deleted event)"}</div><div style={{fontSize:"11px",color:"var(--muted)"}}>{e?.clientName}</div></div>
+                <div style={{color:"var(--body)"}}>{p.method||"—"}</div>
+                <div style={{color:"var(--body)"}}>{[p.note,p.reference&&`#${p.reference}`].filter(Boolean).join(" · ")||"—"}</div>
+                <div style={{color:"var(--green)",fontWeight:700}}>{money(p.amount)}</div>
+              </div>);})}
+          </div></div>
+        )}
+
         <div style={{marginBottom:"22px"}}><h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)",marginBottom:"4px"}}>Payment Methods</h3><p style={{fontSize:"13px",color:"var(--muted)"}}>Enable each method. Clients see payment links on their event page when you add a payment request.</p></div>
         <PayToggle id="venmo"   label="Venmo"    icon="💙" desc="Pre-filled Venmo payment link"          field="venmo"    placeholder="@YourVenmo"             lps={lps} setLps={setLps} setPdirty={setPdirty}/>
         <PayToggle id="cashapp" label="Cash App" icon="💚" desc="Pre-filled Cash App payment link"       field="cashApp"  placeholder="$YourCashtag"           lps={lps} setLps={setLps} setPdirty={setPdirty}/>
@@ -1088,25 +1162,33 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
             {psaving?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:"Save Payment Settings"}
           </button>
         </div>}
-      </div>}
+      </div>);})()}
     </main>
   </div>);}
 
 // ════════════════════════════════════════════════
 // ADMIN EVENT VIEW
 // ════════════════════════════════════════════════
-function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests,onSave,onEditDetails,onAddPayReq,onUpdatePayReq,onBack}){
+function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests,payments,onSave,onEditDetails,onAddPayReq,onUpdatePayReq,onAddPayment,onDeletePayment,onBack}){
   const[status,setStatus]=useState(event.status||"draft");
   const[notes,setNotes]=useState(savedNotes||"");
   const[total,setTotal]=useState(event.totalAmount||"");
   const[saved,setSaved]=useState(false);
   const[addingReq,setAddingReq]=useState(false);
   const[rf,setRf]=useState({amount:"",label:"",dueDate:""});
+  const[pf,setPf]=useState(null); // record-payment form: {amount,paidOn,method,reference,note,requestId}
   const[showInvoice,setShowInvoice]=useState(false);
   const[showContract,setShowContract]=useState(false);
   const[showEmails,setShowEmails]=useState(false);
   const owner=profiles.find(p=>p.id===event.userId);
   const myReqs=(payRequests||[]).filter(r=>r.eventId===event.id);
+  const myPays=(payments||[]).filter(p=>p.eventId===event.id).sort((a,b)=>(b.paidOn||"").localeCompare(a.paidOn||""));
+  const evTotal=parseFloat(event.totalAmount)||0;
+  const evPaid=paidFor(event.id,payments);
+  const evBal=Math.max(0,evTotal-evPaid);
+  const isPast=!!event.eventDate&&event.eventDate<todayISO();
+  const openPay=(o={})=>setPf({amount:"",paidOn:todayISO(),method:"",reference:"",note:"",requestId:null,...o});
+  const savePay=async()=>{if(!(parseFloat(pf.amount)>0))return alert("Enter the amount received.");await onAddPayment({...pf,id:uid(),eventId:event.id});setPf(null);};
   const ps=paySettings||BLANK_PAY;
   const m=meta(event.eventType);
   const gcal=gcalLink(event);
@@ -1115,9 +1197,9 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
   const addReq=async()=>{if(!rf.amount||!rf.label)return;await onAddPayReq({id:uid(),eventId:event.id,amount:rf.amount,label:rf.label,dueDate:rf.dueDate,status:"pending"});setAddingReq(false);setRf({amount:"",label:"",dueDate:""});};
 
   return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
-    {showInvoice&&<InvoiceView event={event} payRequests={myReqs} onClose={()=>setShowInvoice(false)}/>}
+    {showInvoice&&<InvoiceView event={event} payRequests={myReqs} payments={payments} onClose={()=>setShowInvoice(false)}/>}
     {showContract&&<ContractView event={event} payRequests={myReqs} onClose={()=>setShowContract(false)}/>}
-    {showEmails&&<EmailTemplates event={event} payRequests={myReqs} paySettings={ps} onClose={()=>setShowEmails(false)}/>}
+    {showEmails&&<EmailTemplates event={event} payRequests={myReqs} paySettings={ps} payments={payments} onClose={()=>setShowEmails(false)}/>}
     <TopNav title="Admin: Event Detail" back={onBack} badge="Admin"/>
     <div style={{maxWidth:"960px",margin:"0 auto",padding:"28px 24px"}}>
       <Hero ev={event}/>
@@ -1156,25 +1238,65 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
         {owner&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid var(--pbdr)",fontSize:"12px",color:"var(--purple)",opacity:.85}}>Account: <strong>{owner.name||owner.email}</strong> ({owner.email}){event.createdAt&&` · Submitted ${fShort(event.createdAt)}`}</div>}
       </div>
 
-      {/* Payment requests */}
+      {/* Payments: totals, schedule (requests), and log of money received */}
       <div style={{background:"var(--white)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"20px 24px",marginBottom:"18px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"8px"}}><span style={{fontSize:"16px"}}>💳</span><span style={{fontSize:"12px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"var(--purple)"}}>Payment Requests</span></div>
-          <button className="btn b-purple" onClick={()=>setAddingReq(true)} style={{padding:"6px 14px",fontSize:"12px"}}>+ Request Payment</button>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",flexWrap:"wrap",marginBottom:"14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px"}}><span style={{fontSize:"16px"}}>💳</span><span style={{fontSize:"12px",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"var(--purple)"}}>Payments</span></div>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+            {evBal>0&&<button className="btn b-green" onClick={()=>openPay({amount:evBal.toFixed(2),note:"Final payment"})} style={{padding:"6px 14px",fontSize:"12px"}}>Record Final Payment</button>}
+            <button className="btn b-purple" onClick={()=>openPay()} style={{padding:"6px 14px",fontSize:"12px"}}>+ Record Payment</button>
+            <button className="btn b-out" onClick={()=>setAddingReq(true)} style={{padding:"6px 14px",fontSize:"12px"}}>+ Request Payment</button>
+          </div>
         </div>
-        {!Object.values(ps.methods||{}).some(Boolean)&&<div style={{padding:"10px 12px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--body)",marginBottom:"12px"}}>⚠️ No payment methods configured yet. Go to the <strong>Payments</strong> tab to set up Venmo, Cash App, Zelle, or PayPal.</div>}
-        <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"14px"}}>
+          {[["Total",evTotal?money(evTotal):"Not set","var(--ink)"],["Received",money(evPaid),"var(--green)"],["Balance",money(evBal),evBal>0?"var(--purple)":"var(--green)"]].map(([l,v,c])=>(
+            <div key={l}><div className="lbl">{l}</div><div style={{fontFamily:"var(--ff)",fontSize:"22px",color:c}}>{v}</div></div>
+          ))}
+        </div>
+        {isPast&&evBal>0&&<div style={{padding:"10px 12px",background:"var(--rbg)",border:"1.5px solid var(--rbdr)",borderRadius:"var(--r)",fontSize:"12.5px",color:"var(--red)",marginBottom:"12px"}}>Event date has passed — {money(evBal)} is still outstanding.</div>}
+        {evTotal>0&&evBal<=0&&<div style={{padding:"10px 12px",background:"var(--gbg2)",border:"1.5px solid var(--gbdr2)",borderRadius:"var(--r)",fontSize:"12.5px",color:"var(--green)",marginBottom:"12px"}}>✓ Paid in full</div>}
+        {!Object.values(ps.methods||{}).some(Boolean)&&<div style={{padding:"10px 12px",background:"var(--gbg)",border:"1.5px solid var(--gbdr)",borderRadius:"var(--r)",fontSize:"12px",color:"var(--body)",marginBottom:"12px"}}>⚠️ No online payment methods set up yet. Go to the <strong>Payments</strong> tab to add Venmo, Cash App, Zelle, or PayPal.</div>}
+
+        {pf&&<div style={{marginBottom:"14px",padding:"16px",background:"var(--panel)",borderRadius:"10px",border:"1.5px solid var(--border)"}}>
+          <h4 style={{fontFamily:"var(--ff)",fontSize:"17px",fontWeight:400,color:"var(--ink)",marginBottom:"12px"}}>Record Payment Received</h4>
+          <div className="g3" style={{marginBottom:"12px"}}>
+            <div className="fg"><label className="lbl">Amount ($)</label><input type="number" min="0" step="0.01" value={pf.amount} onChange={e=>setPf(f=>({...f,amount:e.target.value}))} placeholder="500.00"/></div>
+            <div className="fg"><label className="lbl">Date Received</label><input type="date" value={pf.paidOn} onChange={e=>setPf(f=>({...f,paidOn:e.target.value}))}/></div>
+            <div className="fg"><label className="lbl">Method</label><select value={pf.method} onChange={e=>setPf(f=>({...f,method:e.target.value}))}><option value="">Choose…</option>{PAY_METHODS.map(m=><option key={m}>{m}</option>)}</select></div>
+          </div>
+          <div className="g2" style={{marginBottom:"12px"}}>
+            <div className="fg"><label className="lbl">Check # / Reference</label><input value={pf.reference} onChange={e=>setPf(f=>({...f,reference:e.target.value}))} placeholder="Optional"/></div>
+            <div className="fg"><label className="lbl">Note</label><input value={pf.note} onChange={e=>setPf(f=>({...f,note:e.target.value}))} placeholder="Deposit, Final payment, Overtime…"/></div>
+          </div>
+          <div style={{display:"flex",gap:"8px"}}><button className="btn b-out" onClick={()=>setPf(null)} style={{flex:1,justifyContent:"center"}}>Cancel</button><button className="btn b-green" onClick={savePay} style={{flex:1,justifyContent:"center"}}>Save Payment</button></div>
+        </div>}
+
+        <div className="lbl" style={{marginTop:"6px"}}>Payment Log</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"6px",marginBottom:"16px"}}>
+          {myPays.map(p=>(
+            <div key={p.id} style={{padding:"10px 14px",background:"var(--gbg2)",border:"1.5px solid var(--gbdr2)",borderRadius:"10px",display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}}>
+              <span style={{fontSize:"12.5px",color:"var(--muted)",width:"100px"}}>{fShort(p.paidOn)}</span>
+              <span style={{flex:1,minWidth:"160px",fontSize:"13px",color:"var(--ink)"}}>{[p.note,p.method,p.reference&&`#${p.reference}`].filter(Boolean).join(" · ")||"Payment"}</span>
+              <span style={{fontSize:"14px",fontWeight:700,color:"var(--green)"}}>{money(p.amount)}</span>
+              <button className="btn b-danger" onClick={()=>{if(confirm(`Remove the ${money(p.amount)} payment from ${fShort(p.paidOn)}?`))onDeletePayment(p);}} style={{padding:"4px 9px",fontSize:"11px"}}>Remove</button>
+            </div>
+          ))}
+          {myPays.length===0&&<div style={{fontSize:"13px",color:"var(--dim)",padding:"8px 0"}}>No payments recorded yet.</div>}
+        </div>
+
+        <div className="lbl">Payment Schedule (what the client sees as due)</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
           {myReqs.map(r=>(
-            <div key={r.id} style={{padding:"12px 16px",background:r.status==="paid"?"var(--gbg2)":"var(--pbg)",border:`1.5px solid ${r.status==="paid"?"var(--gbdr2)":"var(--pbdr)"}`,borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px"}}>
-              <div><div style={{fontSize:"15px",fontWeight:600,color:r.status==="paid"?"var(--green)":"var(--purple)"}}>{money(r.amount)} — {r.label}</div>{r.dueDate&&<div style={{fontSize:"11px",color:"var(--muted)"}}>Due: {fShort(r.dueDate)}</div>}</div>
+            <div key={r.id} style={{padding:"10px 14px",background:r.status==="paid"?"var(--gbg2)":"var(--pbg)",border:`1.5px solid ${r.status==="paid"?"var(--gbdr2)":"var(--pbdr)"}`,borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px"}}>
+              <div><div style={{fontSize:"14px",fontWeight:600,color:r.status==="paid"?"var(--green)":"var(--purple)"}}>{money(r.amount)} — {r.label}</div>{r.dueDate&&<div style={{fontSize:"11px",color:"var(--muted)"}}>Due: {fShort(r.dueDate)}</div>}</div>
               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                {r.status!=="paid"&&<button className="btn b-green" onClick={()=>onUpdatePayReq({...r,status:"paid"})} style={{padding:"5px 12px",fontSize:"11px"}}>✓ Mark Paid</button>}
+                {r.status!=="paid"&&<button className="btn b-green" onClick={()=>openPay({amount:String(r.amount),note:r.label,requestId:r.id})} style={{padding:"5px 12px",fontSize:"11px"}}>✓ Mark Paid</button>}
                 {r.status==="paid"&&<span style={{fontSize:"11px",color:"var(--green)",fontWeight:700}}>✓ PAID</span>}
                 <button className="btn b-danger" onClick={()=>onUpdatePayReq({...r,_delete:true})} style={{padding:"5px 10px",fontSize:"11px"}}>Remove</button>
               </div>
             </div>
           ))}
-          {myReqs.length===0&&<div style={{fontSize:"13px",color:"var(--dim)",textAlign:"center",padding:"16px"}}>No payment requests yet.</div>}
+          {myReqs.length===0&&<div style={{fontSize:"13px",color:"var(--dim)",padding:"8px 0"}}>No payment requests yet.</div>}
         </div>
         {addingReq&&<div style={{marginTop:"14px",padding:"16px",background:"var(--panel)",borderRadius:"10px",border:"1.5px solid var(--border)"}}>
           <h4 style={{fontFamily:"var(--ff)",fontSize:"17px",fontWeight:400,color:"var(--ink)",marginBottom:"12px"}}>New Payment Request</h4>
@@ -1263,14 +1385,14 @@ const songSlots = t => ({
   sweet_16:[["Grand Entrance","grandEntrance"],["Cake Cutting","cakeCutting"],["Opening Song","opening"],["Last Dance","lastDance"]],
 }[t] || [["Grand Entrance","grandEntrance"],["Opening Song","opening"],["Last Dance","lastDance"]]);
 
-function buildEmails(ev, reqs, ps){
+function buildEmails(ev, reqs, ps, pays){
   const b=getBrand();
   const first=(ev.clientName||"").trim().split(/\s+/)[0]||"there";
   const name=ev.eventName||meta(ev.eventType).label;
   const when=`${fDate(ev.eventDate)}${ev.startTime?`, ${f12(ev.startTime)}${ev.endTime?` – ${f12(ev.endTime)}`:""}`:""}`;
   const venue=[ev.venueName,[ev.venueAddress,ev.venueCity,ev.venueState].filter(Boolean).join(", ")].filter(Boolean).join(" — ")||"TBD";
   const total=parseFloat(ev.totalAmount)||0;
-  const paid=reqs.filter(r=>r.status==="paid").reduce((t,r)=>t+(parseFloat(r.amount)||0),0);
+  const paid=paidFor(ev.id,pays);
   const balance=Math.max(0,total-paid);
   const pending=reqs.filter(r=>r.status!=="paid");
   const sign=`Thanks,\nBryon\n${b.name} — ${b.tagline}\n${b.phone} · ${b.email}`;
@@ -1296,7 +1418,7 @@ function buildEmails(ev, reqs, ps){
   return [
     {id:"booking",label:"Booking confirmation",
      subject:`You're booked! ${name} — ${fShort(ev.eventDate)||"date TBD"}`,
-     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}\n${total?`\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
+     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}\n${total?`\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Your invoice and contract are there too, ready to view or download. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
     {id:"planning",label:"Planning reminder",
      subject:`Planning reminder: ${name} — details due ${planDue}`,
      body:`Hi ${first},\n\nYour event is coming up on ${fDate(ev.eventDate)}! To make sure everything goes exactly how you want it, please finish your planner by ${planDue}.\n\n${missing.length?`Here's what's still open:\n${missing.map(m=>`  • ${m}`).join("\n")}`:"Everything looks complete — please give it one last look to make sure it's all correct."}\n\nYou can update everything in your portal: ${PORTAL}\n\n${sign}`},
@@ -1312,8 +1434,8 @@ function buildEmails(ev, reqs, ps){
   ];
 }
 
-function EmailTemplates({event,payRequests,paySettings,onClose}){
-  const list=buildEmails(event,payRequests||[],paySettings||BLANK_PAY);
+function EmailTemplates({event,payRequests,paySettings,payments,onClose}){
+  const list=buildEmails(event,payRequests||[],paySettings||BLANK_PAY,payments||[]);
   const[sel,setSel]=useState(list[0].id);
   const[edits,setEdits]=useState({}); // keep the admin's tweaks per template while the modal is open
   const base=list.find(e=>e.id===sel);
@@ -1342,25 +1464,74 @@ function EmailTemplates({event,payRequests,paySettings,onClose}){
   );
 }
 
+// ── PDF export (html2pdf loaded on first use) ──
+let _h2p=null;
+const loadPdfLib=()=>_h2p||(_h2p=new Promise((res,rej)=>{
+  if(window.html2pdf)return res(window.html2pdf);
+  const el=document.createElement("script");
+  el.src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+  el.onload=()=>res(window.html2pdf);
+  el.onerror=()=>{_h2p=null;rej(new Error("Couldn't load the PDF tool. Check your connection and try again."));};
+  document.head.appendChild(el);
+}));
+const pdfBlob=async(el,filename)=>{
+  const h=await loadPdfLib();
+  return h().set({margin:[8,8,8,8],filename,image:{type:"jpeg",quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"mm",format:"letter",orientation:"portrait"},pagebreak:{mode:["css","legacy"]}}).from(el).outputPdf("blob");
+};
+const canShareFiles=()=>{try{return !!navigator.canShare&&navigator.canShare({files:[new File([""],"t.pdf",{type:"application/pdf"})]});}catch{return false;}};
+const safeName=t=>(t||"Event").replace(/[\\/:*?"<>|]+/g,"").trim();
+
+// Print / Download PDF / Share buttons for an invoice or contract.
+// The PDF is built ahead of time so Share can open the share sheet straight from the tap (phones require that).
+function DocActions({targetId,filename,title,version,onClose}){
+  const[blob,setBlob]=useState(null);
+  const[busy,setBusy]=useState("");
+  const share=canShareFiles();
+  useEffect(()=>{
+    let live=true;setBlob(null);
+    const t=setTimeout(async()=>{const el=document.getElementById(targetId);if(!el)return;try{const b=await pdfBlob(el,filename);if(live)setBlob(b);}catch{}},version?700:300);
+    return()=>{live=false;clearTimeout(t);};
+  },[targetId,filename,version]);
+  const getBlob=async()=>blob||await pdfBlob(document.getElementById(targetId),filename);
+  const download=async()=>{
+    setBusy("download");
+    try{const b=await getBlob();const url=URL.createObjectURL(b);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
+    catch(e){alert(e.message||"Couldn't create the PDF.");}
+    setBusy("");
+  };
+  const doShare=async()=>{
+    if(!blob)return;
+    try{await navigator.share({files:[new File([blob],filename,{type:"application/pdf"})],title});}
+    catch(e){if(e.name!=="AbortError")alert("Sharing didn't work on this device — use Download PDF and attach it instead.");}
+  };
+  return(
+    <div style={{display:"flex",gap:"10px",marginBottom:"16px",justifyContent:"flex-end",flexWrap:"wrap"}}>
+      {share&&<button className="btn b-gold" onClick={doShare} disabled={!blob} style={{padding:"9px 18px"}}>{blob?"📤 Share / Email PDF":"Preparing PDF…"}</button>}
+      <button className={`btn ${share?"b-out":"b-gold"}`} onClick={download} disabled={busy==="download"} style={{padding:"9px 18px"}}>{busy==="download"?"Creating PDF…":"⬇ Download PDF"}</button>
+      <button className="btn b-out" onClick={()=>window.print()}>🖨 Print</button>
+      <button className="btn b-out" onClick={onClose}>✕ Close</button>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════
 // INVOICE PRINT VIEW
 // ════════════════════════════════════════════════
-function InvoiceView({event,payRequests,onClose}){
+function InvoiceView({event,payRequests,payments,onClose}){
   const brand=getBrand();
   const reqs=(payRequests||[]).filter(r=>r.eventId===event.id);
-  const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
-  const paid=reqs.filter(r=>r.status==="paid").reduce((s,r)=>s+parseFloat(r.amount||0),0);
-  const balance=total-paid;
+  const pays=(payments||[]).filter(p=>p.eventId===event.id).sort((a,b)=>(a.paidOn||"").localeCompare(b.paidOn||""));
   const m=meta(event.eventType);
+  const total=event.totalAmount?parseFloat(event.totalAmount)||0:reqs.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const lines=event.totalAmount?[{id:"svc",label:`DJ services — ${m.label}`,amount:total}]:reqs;
+  const paid=pays.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const balance=Math.max(0,total-paid);
   const invoiceNum=`INV-${event.id?.slice(-6).toUpperCase()||"000000"}`;
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,overflowY:"auto",padding:"24px"}}>
       <div style={{maxWidth:"700px",margin:"0 auto"}}>
-        <div style={{display:"flex",gap:"12px",marginBottom:"16px",justifyContent:"flex-end"}}>
-          <button className="btn b-gold" onClick={()=>window.print()} style={{padding:"9px 20px"}}>🖨 Print / Save PDF</button>
-          <button className="btn b-out" onClick={onClose}>✕ Close</button>
-        </div>
+        <DocActions targetId="invoice-print" filename={`Invoice - ${safeName(event.eventName)}.pdf`} title={`Invoice — ${event.eventName||"Event"}`} version={`${total}|${paid}`} onClose={onClose}/>
         <div id="invoice-print" style={{background:"#fff",borderRadius:"12px",padding:"48px",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1d2e",boxShadow:"0 4px 24px rgba(0,0,0,.15)"}}>
           {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"40px",paddingBottom:"28px",borderBottom:"3px solid #111111"}}>
@@ -1409,43 +1580,41 @@ function InvoiceView({event,payRequests,onClose}){
 
           {/* Line items */}
           <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px"}}>
-            <thead>
-              <tr style={{background:"#111111"}}>
-                <th style={{padding:"12px 16px",textAlign:"left",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",borderRadius:"6px 0 0 6px"}}>Description</th>
-                <th style={{padding:"12px 16px",textAlign:"center",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff"}}>Due Date</th>
-                <th style={{padding:"12px 16px",textAlign:"center",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff"}}>Status</th>
-                <th style={{padding:"12px 16px",textAlign:"right",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",borderRadius:"0 6px 6px 0"}}>Amount</th>
-              </tr>
-            </thead>
+            <thead><tr style={{background:"#111111"}}><th style={{padding:"12px 16px",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",textAlign:"left"}}>Description</th><th style={{padding:"12px 16px",fontSize:"12px",fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#fff",textAlign:"right"}}>Amount</th></tr></thead>
             <tbody>
-              {reqs.length===0&&(
-                <tr><td colSpan={4} style={{padding:"20px 16px",textAlign:"center",fontSize:"13px",color:"#9fa4bc",fontStyle:"italic"}}>No payment items added yet — add payment requests from the admin event view.</td></tr>
-              )}
-              {reqs.map((r,i)=>(
+              {lines.length===0&&<tr><td colSpan={2} style={{padding:"20px 16px",textAlign:"center",fontSize:"13px",color:"#9fa4bc",fontStyle:"italic"}}>No event total set yet.</td></tr>}
+              {lines.map((r,i)=>(
                 <tr key={r.id} style={{borderBottom:"1px solid #dde1eb",background:i%2===0?"#f7f8fb":"#fff"}}>
                   <td style={{padding:"13px 16px",fontSize:"14px",color:"#1a1d2e"}}>{r.label}</td>
-                  <td style={{padding:"13px 16px",fontSize:"13px",color:"#6a7090",textAlign:"center"}}>{r.dueDate?fShort(r.dueDate):"—"}</td>
-                  <td style={{padding:"13px 16px",textAlign:"center"}}>
-                    <span style={{padding:"2px 10px",borderRadius:"20px",fontSize:"11px",fontWeight:700,textTransform:"uppercase",background:r.status==="paid"?"#eaf7f0":"#fcecea",color:r.status==="paid"?"#157a42":"#b52b2b",border:`1px solid ${r.status==="paid"?"#9ed9be":"#f0b0a8"}`}}>{r.status}</span>
-                  </td>
                   <td style={{padding:"13px 16px",fontSize:"14px",fontWeight:600,color:"#1a1d2e",textAlign:"right"}}>{money(r.amount)}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr style={{borderTop:"2px solid #dde1eb"}}>
-                <td colSpan={3} style={{padding:"12px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Total</td>
-                <td style={{padding:"12px 16px",textAlign:"right",fontSize:"15px",fontWeight:700,color:"#1a1d2e"}}>{money(total)}</td>
-              </tr>
-              <tr>
-                <td colSpan={3} style={{padding:"6px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Paid</td>
-                <td style={{padding:"6px 16px",textAlign:"right",fontSize:"14px",fontWeight:600,color:"#157a42"}}>-{money(paid)}</td>
-              </tr>
-              <tr style={{background:"#111111",borderRadius:"8px"}}>
-                <td colSpan={3} style={{padding:"14px 16px",textAlign:"right",fontSize:"14px",fontWeight:700,color:"#fff",borderRadius:"6px 0 0 6px"}}>Balance Due</td>
-                <td style={{padding:"14px 16px",textAlign:"right",fontSize:"18px",fontWeight:700,color:"#ffffff",borderRadius:"0 6px 6px 0"}}>{money(balance)}</td>
-              </tr>
-            </tfoot>
+          </table>
+
+          {/* Payments received */}
+          {pays.length>0&&<>
+            <div style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"#111111",marginBottom:"8px"}}>Payments Received</div>
+            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px"}}>
+              <tbody>
+                {pays.map(p=>(
+                  <tr key={p.id} style={{borderBottom:"1px solid #dde1eb"}}>
+                    <td style={{padding:"9px 16px",fontSize:"13px",color:"#6a7090",width:"130px"}}>{fShort(p.paidOn)}</td>
+                    <td style={{padding:"9px 16px",fontSize:"13px",color:"#1a1d2e"}}>{[p.note,p.method,p.reference&&`#${p.reference}`].filter(Boolean).join(" · ")||"Payment"}</td>
+                    <td style={{padding:"9px 16px",fontSize:"13px",fontWeight:600,color:"#157a42",textAlign:"right"}}>{money(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>}
+
+          {/* Totals */}
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:"24px"}}>
+            <tbody>
+              <tr><td style={{padding:"8px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Total</td><td style={{padding:"8px 16px",textAlign:"right",fontSize:"15px",fontWeight:700,color:"#1a1d2e",width:"160px"}}>{money(total)}</td></tr>
+              <tr><td style={{padding:"6px 16px",textAlign:"right",fontSize:"13px",color:"#6a7090",fontWeight:600}}>Paid</td><td style={{padding:"6px 16px",textAlign:"right",fontSize:"14px",fontWeight:600,color:"#157a42"}}>-{money(paid)}</td></tr>
+              <tr style={{background:"#111111"}}><td style={{padding:"14px 16px",textAlign:"right",fontSize:"14px",fontWeight:700,color:"#fff"}}>{total>0&&balance<=0?"Paid in Full":"Balance Due"}</td><td style={{padding:"14px 16px",textAlign:"right",fontSize:"18px",fontWeight:700,color:"#ffffff"}}>{money(balance)}</td></tr>
+            </tbody>
           </table>
 
           {/* Payment note */}
@@ -1482,10 +1651,7 @@ function ContractView({event,payRequests,onClose}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,overflowY:"auto",padding:"24px"}}>
       <div style={{maxWidth:"760px",margin:"0 auto"}}>
-        <div style={{display:"flex",gap:"12px",marginBottom:"16px",justifyContent:"flex-end"}}>
-          <button className="btn b-gold" onClick={()=>window.print()} style={{padding:"9px 20px"}}>🖨 Print / Save PDF</button>
-          <button className="btn b-out" onClick={onClose}>✕ Close</button>
-        </div>
+        <DocActions targetId="contract-print" filename={`Contract - ${safeName(event.eventName)}.pdf`} title={`Contract — ${event.eventName||"Event"}`} version={`${clientSig}|${clientDate}|${dmSig}|${dmDate}`} onClose={onClose}/>
         <div id="contract-print" style={{background:"#fff",borderRadius:"12px",padding:"48px",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1d2e",boxShadow:"0 4px 24px rgba(0,0,0,.15)",fontSize:"13px",lineHeight:1.7}}>
           {/* Header */}
           <div style={{textAlign:"center",marginBottom:"32px",paddingBottom:"24px",borderBottom:"3px solid #111111"}}>
@@ -1633,6 +1799,7 @@ function App(){
   const[profiles,setProfs]=useState([]);
   const[paySet,setPaySet] =useState(BLANK_PAY);
   const[payReqs,setPayReqs]=useState([]);
+  const[pays,setPays]     =useState([]);
   const[selId,setSelId]   =useState(null);
   const[notesMap,setNotesMap]=useState({}); // admin-only notes, keyed by event id
 
@@ -1673,6 +1840,8 @@ function App(){
       setProfs(profs||[]);
       const{data:pr}=await DB.from("dj_payment_requests").select("*");
       setPayReqs(pr||[]);
+      const{data:pm}=await DB.from("dj_payments").select("*");
+      setPays(pm||[]);
       const{data:nt}=await DB.from("dj_event_notes").select("*");
       setNotesMap(Object.fromEntries((nt||[]).map(n=>[n.event_id,n.notes||""])));
       setScreen("admin");
@@ -1681,6 +1850,8 @@ function App(){
       setEvents((evs||[]).map(fromRow));
       const{data:pr}=await DB.from("dj_payment_requests").select("*").in("event_id",(evs||[]).map(e=>e.id));
       setPayReqs(pr||[]);
+      const{data:pm}=await DB.from("dj_payments").select("*").in("event_id",(evs||[]).map(e=>e.id));
+      setPays(pm||[]);
       setScreen("dash");
     }
   };
@@ -1728,6 +1899,22 @@ function App(){
     if(error)alert(`Couldn't add payment request: ${error.message}`);
     const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
   };
+  const reloadPayments=async()=>{
+    const{data:pm}=await DB.from("dj_payments").select("*");setPays(pm||[]);
+    const{data:pr}=await DB.from("dj_payment_requests").select("*");setPayReqs(pr||[]);
+  };
+  const handleAddPayment=async p=>{
+    const{error}=await DB.from("dj_payments").insert({id:p.id,event_id:p.eventId,request_id:p.requestId||null,amount:parseFloat(p.amount)||0,method:p.method||null,paid_on:p.paidOn||todayISO(),reference:p.reference||null,note:p.note||null});
+    if(error){alert(`Couldn't record payment: ${error.message}`);return;}
+    if(p.requestId)await DB.from("dj_payment_requests").update({status:"paid"}).eq("id",p.requestId);
+    await reloadPayments();
+  };
+  const handleDeletePayment=async p=>{
+    const{error}=await DB.from("dj_payments").delete().eq("id",p.id);
+    if(error){alert(`Couldn't remove payment: ${error.message}`);return;}
+    if(p.requestId)await DB.from("dj_payment_requests").update({status:"pending"}).eq("id",p.requestId);
+    await reloadPayments();
+  };
   const handleUpdatePayReq=async req=>{
     const{error}=req._delete?await DB.from("dj_payment_requests").delete().eq("id",req.id):await DB.from("dj_payment_requests").update({status:req.status}).eq("id",req.id);
     if(error)alert(`Couldn't update payment request: ${error.message}`);
@@ -1736,6 +1923,7 @@ function App(){
 
   // Map payment requests to camelCase
   const pReqs=payReqs.map(r=>({id:r.id,eventId:r.event_id,amount:r.amount,label:r.label,dueDate:r.due_date,status:r.status}));
+  const pPays=pays.map(p=>({id:p.id,eventId:p.event_id,requestId:p.request_id,amount:p.amount,method:p.method,paidOn:p.paid_on,reference:p.reference,note:p.note}));
   const sel=events.find(e=>e.id===selId)||allEvs.find(e=>e.id===selId)||null;
 
   if(!CONFIGURED) return(
@@ -1787,11 +1975,11 @@ function App(){
     {screen==="reset"      && <ResetPassword onDone={handleResetDone}/>}
     {screen==="dash"       && <Dashboard user={user} events={events} onView={id=>{setSelId(id);setScreen("view");}} onEdit={id=>{setSelId(id);setScreen("edit");}} onLogout={handleLogout}/>}
     {screen==="edit"       && <EventForm event={sel} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("view")}/>}
-    {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
-    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
+    {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} payments={pPays} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
+    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} payments={pPays} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
     {screen==="admin_new"  && <EventForm event={null} userId={newFor} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin")}/>}
     {screen==="admin_edit" && <EventForm event={sel} userId={sel?.userId} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin_view")}/>}
-    {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} notes={notesMap[sel?.id]} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
+    {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} notes={notesMap[sel?.id]} profiles={profiles} paySettings={paySet} payRequests={pReqs} payments={pPays} onAddPayment={handleAddPayment} onDeletePayment={handleDeletePayment} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
   </>);
 }
 
