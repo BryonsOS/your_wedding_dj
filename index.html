@@ -714,19 +714,28 @@ function Step7({d}){
     <OkBox msg="Review the details above, then click Submit. We'll follow up to confirm everything."/>
   </div>);}
 
-function EventForm({event,userId,onSave,onCancel}){
+function EventForm({event,userId,clients,onSave,onCancel}){
+  const admin=!!clients; // admin creates/edits events on behalf of a client account
   const[step,setStep]=useState(1);
-  const[data,setData]=useState(()=>event?{...blankEv(),...event}:blankEv());
+  const[data,setData]=useState(()=>{
+    const d=event?{...blankEv(),...event}:{...blankEv(),userId};
+    if(admin&&!event){const c=clients.find(p=>p.id===userId);if(c){d.clientName=c.name||"";d.email=c.email||"";d.phone=c.phone||"";}}
+    return d;
+  });
   const[saving,setSaving]=useState(false);
   const u=useCallback(c=>setData(p=>({...p,...c})),[]);
   const[err,setErr]=useState("");
   const REQ=[[1,"Event type","eventType"],[1,"Event name","eventName"],[1,"Date","eventDate"],[2,"Full name","clientName"],[2,"Phone","phone"],[2,"Email","email"],[3,"Venue name","venueName"]];
+  const pickClient=id=>{const c=clients.find(p=>p.id===id);u({userId:id,...(c&&!data.clientName?{clientName:c.name||""}:{}),...(c&&!data.email?{email:c.email||""}:{}),...(c&&!data.phone&&c.phone?{phone:c.phone}:{})});};
   const save=async draft=>{
+    if(admin&&!data.userId){setErr("Choose which client account this event belongs to.");return;}
     if(!draft){
       const missing=REQ.filter(([,,k])=>!String(data[k]||"").trim());
       if(missing.length){setErr(`Please fill in: ${missing.map(m=>m[1]).join(", ")}`);setStep(missing[0][0]);return;}
     }
-    setErr("");setSaving(true);await onSave({...data,status:draft?"draft":"submitted",id:data.id||uid(),userId});setSaving(false);
+    // Admin edits keep the event's current status (set it in Admin Controls); client saves draft/submit as before
+    const status=admin&&event?.id?data.status:(draft?"draft":"submitted");
+    setErr("");setSaving(true);await onSave({...data,status,id:data.id||uid(),userId:data.userId||userId});setSaving(false);
   };
   const steps=[<Step1 d={data} u={u}/>,<Step2 d={data} u={u}/>,<Step3 d={data} u={u}/>,<Step4 d={data} u={u}/>,<Step5 d={data} u={u}/>,<Step6 d={data} u={u}/>,<Step7 d={data}/>];
   return(
@@ -756,13 +765,21 @@ function EventForm({event,userId,onSave,onCancel}){
       {/* Content */}
       <div style={{maxWidth:"880px",margin:"0 auto",padding:"28px 24px"}}>
         <ErrBox msg={err}/>
+        {admin&&<div style={{background:"var(--pbg)",border:"1.5px solid var(--pbdr)",borderRadius:"12px",padding:"14px 18px",marginBottom:"14px",display:"flex",alignItems:"center",gap:"14px",flexWrap:"wrap"}}>
+          <label className="lbl" style={{margin:0,color:"var(--purple)"}}>Client account</label>
+          <select value={data.userId||""} onChange={e=>pickClient(e.target.value)} style={{flex:1,minWidth:"220px"}}>
+            <option value="">Choose a client…</option>
+            {clients.map(c=><option key={c.id} value={c.id}>{c.name||c.email}{c.name?` (${c.email})`:""}</option>)}
+          </select>
+          {clients.length===0&&<span style={{fontSize:"12px",color:"var(--body)"}}>No clients yet. Add one in the Clients tab first.</span>}
+        </div>}
         <div className="card" style={{boxShadow:"0 1px 8px rgba(0,0,0,.07)"}}>{steps[step-1]}</div>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"18px"}}>
           <button className="btn b-out" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?"hidden":"visible"}}>← Back</button>
           <div style={{display:"flex",gap:"10px"}}>
             {step<7
               ? <button className="btn b-gold" onClick={()=>setStep(s=>s+1)} style={{padding:"10px 24px"}}>{STEPS[step].l} →</button>
-              : <><button className="btn b-out" onClick={()=>save(true)} disabled={saving}>Save as Draft</button><button className="btn b-gold" onClick={()=>save(false)} disabled={saving} style={{padding:"10px 26px"}}>{saving?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:"Submit Event"}</button></>
+              : <><button className="btn b-out" onClick={()=>save(true)} disabled={saving}>Save as Draft</button><button className="btn b-gold" onClick={()=>save(false)} disabled={saving} style={{padding:"10px 26px"}}>{saving?<span style={{animation:"pulse 1s infinite"}}>Saving…</span>:admin?"Save Event":"Submit Event"}</button></>
             }
           </div>
         </div>
@@ -890,7 +907,8 @@ function PayToggle({id,label,icon,desc,field,placeholder,lps,setLps,setPdirty}){
 // ════════════════════════════════════════════════
 // ADMIN DASHBOARD
 // ════════════════════════════════════════════════
-function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEvent,onSavePaySettings,onAddClient,onLogout}){
+function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEvent,onNewEvent,onSavePaySettings,onAddClient,onLogout}){
+  const clients=profiles.filter(p=>!p.is_admin);
   const[tab,setTab]=useState("calendar");
   const[filter,setFilter]=useState({status:"all",type:"all",search:"",uid:"all"});
   const[lps,setLps]=useState(paySettings||BLANK_PAY);
@@ -902,7 +920,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
   const[cfErr,setCfErr]=useState("");
 
   const today=new Date().toISOString().slice(0,10);
-  const counts={total:allEvents.length,upcoming:allEvents.filter(e=>e.eventDate>=today).length,confirmed:allEvents.filter(e=>e.status==="confirmed").length,submitted:allEvents.filter(e=>e.status==="submitted").length,clients:profiles.length};
+  const counts={total:allEvents.length,upcoming:allEvents.filter(e=>e.eventDate>=today).length,confirmed:allEvents.filter(e=>e.status==="confirmed").length,submitted:allEvents.filter(e=>e.status==="submitted").length,clients:clients.length};
 
   const filtered=allEvents.filter(ev=>{
     if(filter.status!=="all"&&ev.status!==filter.status)return false;
@@ -932,7 +950,13 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
       </div>
     </header>
     <main style={{maxWidth:"1200px",margin:"0 auto",padding:"32px 28px"}}>
-      <div style={{marginBottom:"22px"}}><h1 style={{fontFamily:"var(--ff)",fontSize:"28px",fontWeight:400,color:"var(--ink)",marginBottom:"4px"}}>Admin Dashboard</h1><p style={{fontSize:"13px",color:"var(--muted)"}}>Manage clients, events, and payments from one place.</p></div>
+      <div style={{marginBottom:"22px",display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:"14px",flexWrap:"wrap"}}>
+        <div><h1 style={{fontFamily:"var(--ff)",fontSize:"28px",fontWeight:400,color:"var(--ink)",marginBottom:"4px"}}>Admin Dashboard</h1><p style={{fontSize:"13px",color:"var(--muted)"}}>Manage clients, events, and payments from one place.</p></div>
+        <div style={{display:"flex",gap:"10px"}}>
+          <button className="btn b-out" onClick={()=>{setTab("clients");setCf({name:"",email:"",password:""});setCfErr("");setCmodal(true);}}>+ Add Client</button>
+          <button className="btn b-gold" onClick={()=>onNewEvent(null)}>+ New Event</button>
+        </div>
+      </div>
 
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:"10px",marginBottom:"26px"}}>
@@ -959,7 +983,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
           <input value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} placeholder="Search events…" style={{flex:1,minWidth:"180px",maxWidth:"280px"}}/>
           <select value={filter.status} onChange={e=>setFilter(f=>({...f,status:e.target.value}))} style={{width:"150px"}}><option value="all">All Statuses</option><option value="draft">Draft</option><option value="submitted">Submitted</option><option value="confirmed">Confirmed</option></select>
           <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} style={{width:"180px"}}><option value="all">All Event Types</option>{ET.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select>
-          <select value={filter.uid} onChange={e=>setFilter(f=>({...f,uid:e.target.value}))} style={{width:"160px"}}><option value="all">All Clients</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name||p.email}</option>)}</select>
+          <select value={filter.uid} onChange={e=>setFilter(f=>({...f,uid:e.target.value}))} style={{width:"200px"}}><option value="all">All Clients</option>{clients.map(p=><option key={p.id} value={p.id}>{p.name||p.email}</option>)}</select>
         </div>
         {filtered.length===0?(
           <div style={{textAlign:"center",padding:"48px 24px",background:"var(--white)",borderRadius:"12px",border:"1.5px solid var(--border)",color:"var(--muted)"}}><p style={{fontSize:"15px",color:"var(--ink)"}}>No events match your filters.</p></div>
@@ -991,19 +1015,23 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
           <div><h3 style={{fontFamily:"var(--ff)",fontSize:"20px",fontWeight:400,color:"var(--ink)",marginBottom:"2px"}}>Client Accounts</h3><p style={{fontSize:"13px",color:"var(--muted)"}}>Create accounts and send login credentials to clients.</p></div>
           <button className="btn b-gold" onClick={()=>{setCf({name:"",email:"",password:""});setCfErr("");setCmodal(true);}} style={{padding:"9px 20px"}}>+ Add Client</button>
         </div>
-        {profiles.length===0?(
+        {clients.length===0?(
           <div style={{textAlign:"center",padding:"48px 24px",background:"var(--white)",borderRadius:"12px",border:"1.5px solid var(--border)",color:"var(--muted)"}}><p style={{fontFamily:"var(--ff)",fontSize:"18px",color:"var(--ink)",marginBottom:"6px"}}>No clients yet</p><button className="btn b-gold" onClick={()=>{setCf({name:"",email:"",password:""});setCfErr("");setCmodal(true);}}>Add First Client</button></div>
         ):(
           <div className="tbl-scroll" style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"12px"}}><div>
-            <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 180px",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 300px",gap:"12px",padding:"10px 18px",background:"var(--panel)",borderBottom:"1px solid var(--border)"}}>
               {["Name","Email","Events","Actions"].map(h=><div key={h} style={{fontSize:"11px",fontWeight:700,textTransform:"uppercase",letterSpacing:".07em",color:"var(--muted)"}}>{h}</div>)}
             </div>
-            {profiles.map((p,i)=>(
-              <div key={p.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 180px",gap:"12px",padding:"13px 18px",borderBottom:i<profiles.length-1?"1px solid var(--border)":"none",alignItems:"center"}}>
+            {clients.map((p,i)=>(
+              <div key={p.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 80px 300px",gap:"12px",padding:"13px 18px",borderBottom:i<clients.length-1?"1px solid var(--border)":"none",alignItems:"center"}}>
                 <div style={{fontWeight:500,color:"var(--ink)",fontSize:"13.5px"}}>{p.name||"—"}</div>
                 <div style={{fontSize:"13px",color:"var(--body)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.email}</div>
                 <div style={{fontSize:"13px",color:"var(--blue)",fontWeight:600}}>{allEvents.filter(e=>e.userId===p.id).length}</div>
-                <div><button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)"})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button></div>
+                <div style={{display:"flex",gap:"6px"}}>
+                  <button className="btn b-out" onClick={()=>{setFilter(f=>({...f,uid:p.id,status:"all",type:"all",search:""}));setTab("list");}} style={{padding:"5px 10px",fontSize:"11px"}}>View Events</button>
+                  <button className="btn b-out" onClick={()=>onNewEvent(p.id)} style={{padding:"5px 10px",fontSize:"11px"}}>+ Event</button>
+                  <button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)"})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button>
+                </div>
               </div>
             ))}
           </div></div>
@@ -1055,7 +1083,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,onSelectEven
 // ════════════════════════════════════════════════
 // ADMIN EVENT VIEW
 // ════════════════════════════════════════════════
-function AdminEventView({event,profiles,paySettings,payRequests,onSave,onAddPayReq,onUpdatePayReq,onBack}){
+function AdminEventView({event,profiles,paySettings,payRequests,onSave,onEditDetails,onAddPayReq,onUpdatePayReq,onBack}){
   const[status,setStatus]=useState(event.status||"draft");
   const[notes,setNotes]=useState(event.adminNotes||"");
   const[saved,setSaved]=useState(false);
@@ -1081,6 +1109,7 @@ function AdminEventView({event,profiles,paySettings,payRequests,onSave,onAddPayR
 
       {/* Quick action buttons */}
       <div style={{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"18px"}}>
+        <button className="btn b-gold" onClick={onEditDetails} style={{fontSize:"13px"}}>✏️ Edit Event Details</button>
         {gcal&&<a href={gcal} target="_blank" rel="noreferrer" className="btn b-out" style={{fontSize:"13px"}}>📅 Add to Google Calendar</a>}
         <button className="btn b-out" onClick={()=>setShowInvoice(true)} style={{fontSize:"13px"}}>🧾 Generate Invoice</button>
         <button className="btn b-out" onClick={()=>setShowContract(true)} style={{fontSize:"13px"}}>📄 Generate Contract</button>
@@ -1558,6 +1587,7 @@ function App(){
   };
 
   const handleDelete=async id=>{await DB.from("dj_events").delete().eq("id",id);setEvents(p=>p.filter(e=>e.id!==id));};
+  const[newFor,setNewFor]=useState(null); // client id preselected when admin starts a new event
   const handleAdminSave=async ev=>{const{data}=await DB.from("dj_events").upsert(toRow(ev),{onConflict:"id"}).select().single();if(data){const m=fromRow(data);setAllEvs(p=>p.map(e=>e.id===m.id?m:e));}};
   const handleSavePaySettings=async s=>{await DB.from("dj_payment_settings").upsert({id:"00000000-0000-0000-0000-000000000001",venmo:s.venmo||"",cash_app:s.cashApp||"",zelle:s.zelle||"",paypal_me:s.paypalMe||"",methods:s.methods||{}},{onConflict:"id"});setPaySet(s);};
 
@@ -1638,8 +1668,10 @@ function App(){
     {screen==="new"        && <EventForm event={null} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("dash")}/>}
     {screen==="edit"       && <EventForm event={sel} userId={user?.id} onSave={handleSaveEvent} onCancel={()=>setScreen("view")}/>}
     {screen==="view"       && <EventView event={sel} paySettings={paySet} payRequests={pReqs} onEdit={()=>setScreen("edit")} onBack={()=>setScreen("dash")}/>}
-    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
-    {screen==="admin_view" && <AdminEventView event={sel} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
+    {screen==="admin"      && <AdminDashboard allEvents={allEvs} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSelectEvent={ev=>{setSelId(ev.id);setScreen("admin_view");}} onNewEvent={cid=>{setNewFor(cid);setSelId(null);setScreen("admin_new");}} onSavePaySettings={handleSavePaySettings} onAddClient={handleAddClient} onLogout={handleLogout}/>}
+    {screen==="admin_new"  && <EventForm event={null} userId={newFor} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin")}/>}
+    {screen==="admin_edit" && <EventForm event={sel} userId={sel?.userId} clients={profiles.filter(p=>!p.is_admin)} onSave={handleSaveEvent} onCancel={()=>setScreen("admin_view")}/>}
+    {screen==="admin_view" && <AdminEventView key={sel?.id+String(sel?.updatedAt)} event={sel} profiles={profiles} paySettings={paySet} payRequests={pReqs} onSave={handleAdminSave} onEditDetails={()=>setScreen("admin_edit")} onAddPayReq={handleAddPayReq} onUpdatePayReq={handleUpdatePayReq} onBack={()=>setScreen("admin")}/>}
   </>);
 }
 
