@@ -109,7 +109,7 @@ function applyPhotos() {
   $$("[data-photo]").forEach(el => {
     const src = P[el.dataset.photo]; if (!src) return;
     if (el.classList.contains("hero")) { el.classList.add("photo"); el.style.backgroundImage = `url("${src}")`; }
-    else el.innerHTML = `<img src="${esc(src)}" alt="" loading="lazy">`;
+    else el.innerHTML = `<img src="${esc(src)}" alt="${esc(el.dataset.alt || "")}"${el.classList.contains("hero-media") ? "" : ' loading="lazy"'}>`;
   });
 }
 
