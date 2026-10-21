@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check Your Date & Request a Quote — YourWeddingsDJ.com</title>
+<meta name="description" content="Check if your date is available and request a quote for your wedding, school dance or party.">
+<meta property="og:title" content="Check Your Date & Request a Quote — YourWeddingsDJ.com">
+<meta property="og:description" content="Check if your date is available and request a quote for your wedding, school dance or party.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html"><b>YourWeddingsDJ.com</b><small>a Directmix Entertainment company</small></a>
+    <button class="menu-btn" aria-label="Menu">☰</button>
+    <nav class="nav"><a href="weddings.html">Weddings</a><a href="events.html">Parties &amp; Schools</a><a href="gallery.html">Gallery</a><a href="reviews.html">Reviews</a><a href="about.html">About</a><a href="portal/">Client Login</a><a class="btn btn-w btn-sm" href="contact.html">Check Your Date</a></nav>
+  </div>
+</header>
+<main>
+<section class="page-hero"><div class="wrap"><span class="eyebrow">Contact</span><h1>Check your date</h1><p class="lead">See if we're open, then tell us a little about your event. You'll hear back within one business day.</p>
+  <div style="margin-top:28px"><form class="avail" data-avail>
+  <label for="avail-date">Your date</label>
+  <input id="avail-date" type="date" required>
+  <button class="btn btn-w btn-sm" type="submit">Check Availability</button>
+</form>
+<div class="avail-result" aria-live="polite"></div></div></div></section>
+<section>
+  <div class="wrap split" style="align-items:start">
+    <form class="card form" data-quote novalidate>
+      <h3>Request a quote</h3>
+      <div class="row">
+        <div class="field"><label for="q-name">Your name *</label><input id="q-name" autocomplete="name" required maxlength="120"></div>
+        <div class="field"><label for="q-email">Email *</label><input id="q-email" type="email" autocomplete="email" required maxlength="200"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="q-phone">Phone</label><input id="q-phone" type="tel" autocomplete="tel" maxlength="40"></div>
+        <div class="field"><label for="q-type">Event type</label><select id="q-type"><option>Wedding</option><option>School Dance / Prom</option><option>Birthday Party</option><option>Sweet 16 / Quinceañera</option><option>Corporate Event</option><option>Bar / Bat Mitzvah</option><option>Other</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="q-date">Event date</label><input id="q-date" type="date"></div>
+        <div class="field"><label for="q-guests">Guest count</label><input id="q-guests" type="number" min="0" max="100000"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="q-venue">Venue</label><input id="q-venue" maxlength="200" placeholder="Name and city"></div>
+        <div class="field"><label for="q-package">Package interest</label><select id="q-package"><option value="">Not sure yet</option></select></div>
+      </div>
+      <div class="field"><label for="q-message">Tell us about your event</label><textarea id="q-message" maxlength="4000" placeholder="Times, ceremony location, add-ons you're interested in, anything else…"></textarea></div>
+      <div class="field"><label for="q-source">How did you hear about us?</label><select id="q-source"><option value="">Choose…</option><option>Google</option><option>The Knot</option><option>WeddingWire</option><option>Facebook / Instagram</option><option>Friend or family</option><option>Venue recommendation</option><option>Saw you at an event</option><option>Other</option></select></div>
+      <div class="hp" aria-hidden="true"><label for="q-website">Website</label><input id="q-website" tabindex="-1" autocomplete="off"></div>
+      <div class="form-msg" aria-live="polite"></div>
+      <button class="btn btn-w" type="submit">Send My Request</button>
+    </form>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <h3 style="margin-bottom:10px">Prefer to talk?</h3>
+        <p class="muted" style="margin-bottom:14px">Call or text Bryon directly.</p>
+        <p><a class="btn btn-o btn-sm" href="tel:+12483904576">(248) 390-4576</a></p>
+        <p style="margin-top:10px"><a class="btn btn-o btn-sm" href="mailto:bryon@yourweddingsdj.com">bryon@yourweddingsdj.com</a></p>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Already booked?</h3>
+        <p class="muted" style="margin-bottom:14px">Log in to plan your timeline and songs, and view your invoice and contract.</p>
+        <a class="btn btn-w btn-sm" href="portal/">Client Login</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <div class="brand" style="margin-bottom:14px"><b>YourWeddingsDJ.com</b><small>a Directmix Entertainment company</small></div>
+        <p class="muted" style="max-width:360px">Wedding DJ &amp; MC, lighting and entertainment for weddings, school dances and parties across Oakland County and Metro Detroit.</p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <a href="weddings.html">Wedding Packages</a><a href="events.html">Parties &amp; Schools</a><a href="gallery.html">Gallery</a><a href="reviews.html">Reviews</a><a href="about.html">About</a>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <a href="tel:+12483904576">(248) 390-4576</a><a href="mailto:bryon@yourweddingsdj.com">bryon@yourweddingsdj.com</a><a href="contact.html">Request a Quote</a><a href="portal/">Client Login</a>
+        <span class="muted" style="display:block;padding-top:6px">Waterford, MI 48328</span>
+      </div>
+    </div>
+    <div class="legal"><span>© <span data-year></span> Directmix Entertainment d/b/a YourWeddingsDJ.com</span><span>Waterford, Michigan</span></div>
+  </div>
+</footer>
+<script src="assets/content.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>
