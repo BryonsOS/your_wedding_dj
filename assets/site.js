@@ -38,22 +38,21 @@ async function renderPackages(el) {
   try {
     const { packages } = await catalog();
     const list = packages.filter(p => (kind === "hourly" ? isHourly(p) : !isHourly(p)));
-    if (!list.length) { el.innerHTML = `<p class="loading">Packages coming soon — <a href="contact.html">ask for a quote</a>.</p>`; return; }
-    const feat = list.length >= 3 ? list[Math.floor(list.length / 2)].id : null;
+    if (!list.length) { el.innerHTML = `<p class="loading">Package details are being updated. <a href="contact.html">Ask for a quote</a>.</p>`; return; }
+    const withCta = el.dataset.cta !== "none"; // the home page lists packages without a button on each card
     el.innerHTML = list.map(p => {
       const inc = (p.includes || "").split("\n").map(s => s.trim()).filter(Boolean);
       const per = isHourly(p) ? "per hour" : `${+p.hours} hours of coverage · extra time ${money(p.overtime_rate)}/hr`;
-      return `<div class="card pkg${p.id === feat ? " featured" : ""}">
-        ${p.id === feat ? `<span class="tag">Most popular</span>` : ""}
+      return `<div class="card pkg">
         <h3>${esc(p.name)}</h3>
         <div class="price">${money(p.price)}</div>
         <div class="per">${esc(per)}</div>
         <ul>${inc.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
-        <a class="btn ${p.id === feat ? "btn-w" : "btn-o"}" href="contact.html?package=${encodeURIComponent(p.name)}${kind === "hourly" ? "&type=School%20Dance%20%2F%20Prom" : "&type=Wedding"}">Check my date</a>
+        ${withCta ? `<a class="btn btn-o" href="contact.html?package=${encodeURIComponent(p.name)}${kind === "hourly" ? "&type=School%20Dance%20%2F%20Prom" : "&type=Wedding"}">Request a Quote</a>` : ""}
       </div>`;
     }).join("");
     el.classList.add("grid", list.length >= 3 ? "g3" : "g2");
-  } catch { el.innerHTML = `<p class="loading">Couldn't load packages right now — <a href="contact.html">request a quote</a>.</p>`; }
+  } catch { el.innerHTML = `<p class="loading">Packages couldn't load. <a href="contact.html">Ask for a quote</a> and we'll send pricing.</p>`; }
 }
 async function renderHourlyRate(el) {
   try { const { packages } = await catalog(); const h = packages.find(isHourly); if (h) el.textContent = money(h.price); } catch {}
@@ -93,7 +92,11 @@ function initAvailability(form) {
 // ── Reviews & gallery (from assets/content.js) ──
 function renderReviews(el) {
   const list = (window.REVIEWS || []).slice(0, +el.dataset.limit || 99);
-  if (!list.length) { el.innerHTML = `<div class="placeholder-note">Reviews coming soon.</div>`; el.classList.remove("grid", "g3"); return; }
+  if (!list.length) {
+    // the home page leaves the reviews section out entirely until real reviews are added
+    if (el.dataset.hideEmpty !== undefined) { const sec = el.closest("section"); if (sec) sec.hidden = true; return; }
+    el.innerHTML = `<div class="placeholder-note">Reviews coming soon.</div>`; el.classList.remove("grid", "g3"); return;
+  }
   el.innerHTML = list.map(r => `<div class="card review"><div class="stars">${"★".repeat(r.stars || 5)}</div><q>${esc(r.text)}</q><div class="who">— ${esc(r.name)}${r.event ? ` · ${esc(r.event)}` : ""}${r.source ? ` · ${esc(r.source)}` : ""}</div></div>`).join("");
 }
 function renderGallery(el) {
