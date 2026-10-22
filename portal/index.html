@@ -4,6 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>YourWeddingsDJ — Event Portal</title>
+<link rel="icon" href="/images/logo/icon.svg" type="image/svg+xml"/>
+<link rel="icon" href="/images/logo/favicon-32.png" sizes="32x32"/>
+<link rel="apple-touch-icon" href="/images/logo/apple-touch-icon.png"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
@@ -124,6 +127,7 @@
 const SB_URL    = "https://mhktyejanikvdnjbndgi.supabase.co";
 const SB_ANON   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oa3R5ZWphbmlrdmRuamJuZGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjAyNzcsImV4cCI6MjA5NTM5NjI3N30.OtahkiwKHx-tth18cFZHHKMLGG1ZKjxZT2M5baf0sUs";
 const BRAND     = "YourWeddingsDJ.com";
+const LOGO      = "/images/logo/"; // generated logo files (white on dark, black on light)
 const PORTAL    = location.origin + "/portal/"; // client login lives at /portal/ on the website
 const REVIEW_URL = ""; // ← paste your Google / The Knot review link here; used in the thank-you email
 // Admin = any Supabase account you set is_admin=true on
@@ -355,7 +359,7 @@ const AuthShell = ({children}) => (
     <div className="fade" style={{width:"100%",maxWidth:"400px",position:"relative"}}>
       <div style={{textAlign:"center",marginBottom:"48px"}}>
         <p style={{fontFamily:"var(--ff)",fontSize:"10px",fontWeight:400,letterSpacing:".4em",textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:"16px"}}>Private Client Portal</p>
-        <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(26px,5vw,36px)",fontWeight:400,color:"#fff",letterSpacing:"-.01em",lineHeight:1.1}}>{BRAND}</h1>
+        <h1 style={{margin:0,lineHeight:0}}><img src={LOGO+"wordmark-white.svg"} alt={BRAND} style={{height:"clamp(30px,6vw,42px)",width:"auto",maxWidth:"100%"}}/></h1>
         <div style={{width:"36px",height:"1px",background:"rgba(255,255,255,.2)",margin:"16px auto 0"}}/>
       </div>
       {children}
@@ -486,7 +490,7 @@ function ResetPassword({onDone}){
       <div className="fade" style={{width:"100%",maxWidth:"400px",position:"relative"}}>
         <div style={{textAlign:"center",marginBottom:"48px"}}>
           <p style={{fontFamily:"var(--ff)",fontSize:"10px",fontWeight:400,letterSpacing:".4em",textTransform:"uppercase",color:"rgba(255,255,255,.3)",marginBottom:"16px"}}>Private Client Portal</p>
-          <h1 style={{fontFamily:"var(--ff)",fontSize:"clamp(26px,5vw,36px)",fontWeight:400,color:"#fff",letterSpacing:"-.01em",lineHeight:1.1}}>{BRAND}</h1>
+          <h1 style={{margin:0,lineHeight:0}}><img src={LOGO+"wordmark-white.svg"} alt={BRAND} style={{height:"clamp(30px,6vw,42px)",width:"auto",maxWidth:"100%"}}/></h1>
           <div style={{width:"36px",height:"1px",background:"rgba(255,255,255,.2)",margin:"16px auto 0"}}/>
         </div>
         {ok ? (
@@ -528,7 +532,7 @@ function Dashboard({user,events,onView,onEdit,onLogout}){
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <header style={{background:"var(--nav)",padding:"0 28px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
         <div style={{maxWidth:"1140px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"60px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"10px"}}><span style={{fontFamily:"var(--ff)",fontSize:"18px",color:"#fff",fontWeight:400}}>{BRAND}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}><img src={LOGO+"wordmark-white.svg"} alt={BRAND} style={{height:"22px",width:"auto",display:"block"}}/></div>
           <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
             <span style={{fontSize:"13px",color:"rgba(255,255,255,.5)"}}>Hi, {(user.name||user.email||"").split(" ")[0]}</span>
             <button className="btn b-nav" onClick={onLogout} style={{padding:"6px 12px"}}>Sign Out</button>
@@ -1194,7 +1198,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,cat
   return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
     <header style={{background:"var(--nav)",padding:"0 28px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.28)"}}>
       <div style={{maxWidth:"1200px",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:"60px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:"12px"}}><span style={{fontFamily:"var(--ff)",fontSize:"18px",color:"#fff",fontWeight:400}}>{BRAND}</span><span className="adm">Admin</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:"12px"}}><img src={LOGO+"wordmark-white.svg"} alt={BRAND} style={{height:"22px",width:"auto",display:"block"}}/><span className="adm">Admin</span></div>
         <button className="btn b-nav" onClick={onLogout} style={{padding:"6px 12px",fontSize:"12.5px"}}>Sign Out</button>
       </div>
     </header>
@@ -1764,7 +1768,7 @@ function InvoiceView({event,payRequests,payments,onClose}){
           {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"40px",paddingBottom:"28px",borderBottom:"3px solid #111111"}}>
             <div>
-              <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"28px",fontWeight:400,color:"#1a1d2e",marginBottom:"2px"}}>{brand.name}</h1>
+              <h1 style={{margin:"0 0 6px",lineHeight:0}}><img src={LOGO+"wordmark-black.png"} alt={brand.name} style={{height:"34px",width:"auto"}}/></h1>
               <div style={{fontSize:"11px",letterSpacing:".06em",textTransform:"uppercase",color:"#6a7090",marginBottom:"8px"}}>{brand.tagline}</div>
               <div style={{fontSize:"13px",color:"#6a7090",lineHeight:1.8}}>
                 <div>{brand.address}</div>
@@ -1883,6 +1887,7 @@ function ContractView({event,payRequests,onClose}){
         <div id="contract-print" style={{background:"#fff",borderRadius:"12px",padding:"48px",fontFamily:"'Inter',system-ui,sans-serif",color:"#1a1d2e",boxShadow:"0 4px 24px rgba(0,0,0,.15)",fontSize:"13px",lineHeight:1.7}}>
           {/* Header */}
           <div style={{textAlign:"center",marginBottom:"32px",paddingBottom:"24px",borderBottom:"3px solid #111111"}}>
+            <img src={LOGO+"lockup-black.png"} alt={brand.name} style={{height:"52px",width:"auto",margin:"0 auto 20px",display:"block"}}/>
             <h1 style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:"26px",fontWeight:400,color:"#1a1d2e",marginBottom:"8px"}}>EVENT BOOKING CONTRACT</h1>
             <p style={{color:"#6a7090",fontSize:"13px"}}>PLEASE SIGN AND RETURN THIS CONTRACT TO:</p>
             <p style={{fontWeight:600,color:"#1a1d2e",marginTop:"6px",lineHeight:1.8}}>{brand.legal}<br/>{brand.mailing}<br/>Tel: {brand.phone}<br/>Email: {brand.email}</p>
@@ -2185,7 +2190,7 @@ function App(){
       <div style={{maxWidth:"480px",width:"100%"}}>
         <div style={{textAlign:"center",marginBottom:"32px"}}>
           <div style={{fontSize:"48px",marginBottom:"16px"}}>🎵</div>
-          <h1 style={{fontFamily:"var(--ff)",fontSize:"32px",fontWeight:400,color:"#fff",marginBottom:"8px"}}>{BRAND}</h1>
+          <h1 style={{margin:"0 0 12px",lineHeight:0}}><img src={LOGO+"wordmark-white.svg"} alt={BRAND} style={{height:"38px",width:"auto",maxWidth:"100%"}}/></h1>
           <p style={{fontSize:"14px",color:"rgba(255,255,255,.5)"}}>Setup Required</p>
         </div>
         <div style={{background:"var(--white)",borderRadius:"12px",padding:"32px"}}>
