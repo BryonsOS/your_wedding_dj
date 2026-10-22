@@ -12,7 +12,10 @@ window.REVIEWS = [];
 // { src: "images/first-dance.jpg", caption: "First dance — uplighting & cloud effect", tall: false }
 window.GALLERY = [
   { src: "images/first-dance-rooftop.jpg", caption: "First dance, seen from the DJ booth" },
+  { src: "images/barn-dancefloor.jpg", caption: "Dance floor at a barn reception" },
   { src: "images/first-dance-church.jpg", caption: "First dance" },
+  { src: "images/barn-setup.jpg", caption: "Booth, speakers and light columns before guests arrive" },
+  { src: "images/sweetheart-table.jpg", caption: "Sweetheart table, ready for the reception" },
   { src: "images/setup-church.jpg", caption: "DJ booth and sound beside the cake table" },
 ];
 
@@ -21,5 +24,5 @@ window.PHOTOS = {
   hero: "images/first-dance-rooftop.jpg",
   weddings: "images/first-dance-church.jpg",
   events: "",      // e.g. "images/school-dance.jpg"
-  about: "images/setup-church.jpg",
+  about: "images/bryon.jpg",
 };
