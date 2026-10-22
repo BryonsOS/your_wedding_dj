@@ -14,9 +14,11 @@ window.GALLERY = [
   { src: "images/first-dance-rooftop.jpg", caption: "First dance, seen from the DJ booth" },
   { src: "images/barn-dancefloor.jpg", caption: "Dance floor at a barn reception" },
   { src: "images/first-dance-church.jpg", caption: "First dance" },
-  { src: "images/barn-setup.jpg", caption: "Booth, speakers and light columns before guests arrive" },
   { src: "images/sweetheart-table.jpg", caption: "Sweetheart table, ready for the reception" },
   { src: "images/setup-church.jpg", caption: "DJ booth and sound beside the cake table" },
+  { src: "images/monogram.jpg", caption: "Custom monogram projected on the dance floor" },
+  { src: "images/cake-table-setup.jpg", caption: "Booth and speakers set up behind the cake table" },
+  { src: "images/barn-setup.jpg", caption: "Light columns and speakers in a barn venue" },
 ];
 
 // Optional photos for the home page hero and the brand panels (leave "" to use the plain dark background).
