@@ -1068,6 +1068,8 @@ function CatalogEditor({catalog,onSave}){
 // ════════════════════════════════════════════════
 const LEAD_TYPES={"Wedding":"wedding","School Dance / Prom":"school_dance","Birthday Party":"birthday","Sweet 16 / Quinceañera":"sweet_16","Corporate Event":"corporate","Bar / Bat Mitzvah":"bar_mitzvah","Other":"other"};
 const LEAD_STATUS=[["new","New"],["contacted","Contacted"],["quoted","Quoted"],["booked","Booked"],["lost","Lost"]];
+// Passwords set during this admin session, so the email templates can include them (they can never be read back from the database)
+const SESSION_PW={};
 const tempPassword=()=>{const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";const a=crypto.getRandomValues(new Uint8Array(10));return Array.from(a,x=>c[x%c.length]).join("");};
 // Turn a website lead into a pre-filled event for the admin event form
 function leadToEvent(l,catalog){
@@ -1189,6 +1191,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,cat
     if(cf.password.length<6){setCfErr("Password must be at least 6 characters.");return;}
     const r=await onAddClient(cf.name,cf.email,cf.password);
     if(typeof r==="string"){setCfErr(r);return;}
+    if(r?.id)SESSION_PW[r.id]=cf.password;
     setCredmodal({name:cf.name,email:cf.email,password:cf.password,id:r?.id,lead:convLead});
     if(convLead&&convLead.status==="new")onUpdateLead(convLead.id,{status:"contacted"});
     setConvLead(null);
@@ -1285,7 +1288,7 @@ function AdminDashboard({allEvents,profiles,paySettings,payRequests,payments,cat
                 <div style={{display:"flex",gap:"6px"}}>
                   <button className="btn b-out" onClick={()=>{setFilter(f=>({...f,uid:p.id,status:"all",type:"all",search:""}));setTab("list");}} style={{padding:"5px 10px",fontSize:"11px"}}>View Events</button>
                   <button className="btn b-out" onClick={()=>onNewEvent(p.id)} style={{padding:"5px 10px",fontSize:"11px"}}>+ Event</button>
-                  <button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:"(as set)",id:p.id})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button>
+                  <button className="btn b-out" onClick={()=>setCredmodal({name:p.name||"Client",email:p.email,password:SESSION_PW[p.id]||"(as set)",id:p.id})} style={{padding:"5px 10px",fontSize:"11px"}}>Send Credentials</button>
                 </div>
               </div>
             ))}
@@ -1428,7 +1431,7 @@ function AdminEventView({event,notes:savedNotes,profiles,paySettings,payRequests
   return(<div style={{minHeight:"100vh",background:"var(--bg)"}}>
     {showInvoice&&<InvoiceView event={event} payRequests={myReqs} payments={payments} onClose={()=>setShowInvoice(false)}/>}
     {showContract&&<ContractView event={event} payRequests={myReqs} onClose={()=>setShowContract(false)}/>}
-    {showEmails&&<EmailTemplates event={event} payRequests={myReqs} paySettings={ps} payments={payments} onClose={()=>setShowEmails(false)}/>}
+    {showEmails&&<EmailTemplates event={event} owner={owner} payRequests={myReqs} paySettings={ps} payments={payments} onClose={()=>setShowEmails(false)}/>}
     <TopNav title="Admin: Event Detail" back={onBack} badge="Admin"/>
     <div style={{maxWidth:"960px",margin:"0 auto",padding:"28px 24px"}}>
       <Hero ev={event}/>
@@ -1616,7 +1619,7 @@ const songSlots = t => ({
   sweet_16:[["Grand Entrance","grandEntrance"],["Cake Cutting","cakeCutting"],["Opening Song","opening"],["Last Dance","lastDance"]],
 }[t] || [["Grand Entrance","grandEntrance"],["Opening Song","opening"],["Last Dance","lastDance"]]);
 
-function buildEmails(ev, reqs, ps, pays){
+function buildEmails(ev, reqs, ps, pays, login={}){
   const b=getBrand();
   const first=(ev.clientName||"").trim().split(/\s+/)[0]||"there";
   const name=ev.eventName||meta(ev.eventType).label;
@@ -1626,6 +1629,8 @@ function buildEmails(ev, reqs, ps, pays){
   const paid=paidFor(ev.id,pays);
   const balance=Math.max(0,total-paid);
   const pending=reqs.filter(r=>r.status!=="paid");
+  const user=login.email||ev.email||"";
+  const loginBlock=`Your planning portal:\n${PORTAL}\nUsername: ${user||"(your email address)"}\nPassword: ${login.password||'use "Forgot password?" on the login page to set one'}`;
   const sign=`Thanks,\nBryon\n${b.name} — ${b.tagline}\n${b.phone} · ${b.email}`;
   const songs=songSlots(ev.eventType).map(([l,k])=>[l,ev[k+"Song"],ev[k+"Artist"]]);
   const songLine=([l,s,a])=>`  • ${l}: ${s}${a?` — ${a}`:""}`;
@@ -1649,10 +1654,13 @@ function buildEmails(ev, reqs, ps, pays){
   return [
     {id:"booking",label:"Booking confirmation",
      subject:`You're booked! ${name} — ${fShort(ev.eventDate)||"date TBD"}`,
-     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}${ev.packageName?`\nPackage: ${ev.packageName}${num(ev.packageHours)?` (${num(ev.packageHours)+(num(ev.extraHours)||0)} hours)`:""}`:""}${(ev.addons||[]).length?`\nAdd-ons: ${ev.addons.map(a=>a.name).join(", ")}`:""}\n${total?`\nDeposit to reserve your date: ${money(num(ev.depositAmount)??200)}\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal at ${PORTAL} and fill in your timeline, special songs, and must-play / do-not-play lists. Your invoice and contract are there too, ready to view or download. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
+     body:`Hi ${first},\n\nThank you for choosing ${b.name}! Your date is officially on our calendar and we can't wait to celebrate with you.\n\nEvent: ${name}\nDate & time: ${when}\nVenue: ${venue}${ev.guestCount?`\nGuests: ${ev.guestCount}`:""}${ev.packageName?`\nPackage: ${ev.packageName}${num(ev.packageHours)?` (${num(ev.packageHours)+(num(ev.extraHours)||0)} hours)`:""}`:""}${(ev.addons||[]).length?`\nAdd-ons: ${ev.addons.map(a=>a.name).join(", ")}`:""}\n${total?`\nDeposit to reserve your date: ${money(num(ev.depositAmount)??200)}\nEvent total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n`:""}\nNext step: log in to your planning portal and fill in your timeline, special songs, and must-play / do-not-play lists. Your invoice and contract are there too, ready to view or download. Please have it complete by ${planDue} (7 days before the event) so we can prepare everything.\n\n${loginBlock}\n\nIf you have any questions, just reply to this email.\n\n${sign}`},
+    {id:"login",label:"Portal login",
+     subject:`Your planning portal login: ${name}`,
+     body:`Hi ${first},\n\nYour planning portal for ${name} on ${fDate(ev.eventDate)} is ready. Your contract, invoice and planning forms are all there.\n\n${loginBlock}\n\nYou can change your password any time with "Forgot password?" on the login page.\n\n${sign}`},
     {id:"planning",label:"Planning reminder",
      subject:`Planning reminder: ${name} — details due ${planDue}`,
-     body:`Hi ${first},\n\nYour event is coming up on ${fDate(ev.eventDate)}! To make sure everything goes exactly how you want it, please finish your planner by ${planDue}.\n\n${missing.length?`Here's what's still open:\n${missing.map(m=>`  • ${m}`).join("\n")}`:"Everything looks complete — please give it one last look to make sure it's all correct."}\n\nYou can update everything in your portal: ${PORTAL}\n\n${sign}`},
+     body:`Hi ${first},\n\nYour event is coming up on ${fDate(ev.eventDate)}! To make sure everything goes exactly how you want it, please finish your planner by ${planDue}.\n\n${missing.length?`Here's what's still open:\n${missing.map(m=>`  • ${m}`).join("\n")}`:"Everything looks complete — please give it one last look to make sure it's all correct."}\n\nYou can update everything in your portal.\n\n${loginBlock}\n\n${sign}`},
     {id:"payment",label:"Payment reminder",
      subject:`Payment reminder: ${name}`,
      body:`Hi ${first},\n\nA friendly reminder about payment for ${name} on ${fDate(ev.eventDate)}.\n\n${pending.length?pending.map(r=>`  • ${r.label}: ${money(r.amount)}${r.dueDate?` (due ${fShort(r.dueDate)})`:""}`).join("\n")+"\n\n":""}${total?`Event total: ${money(total)}\nPaid so far: ${money(paid)}\nRemaining balance: ${money(balance)}\n\n`:""}${methods.length?`You can pay any of these ways:\n${methods.join("\n")}\n\nPayment links are also on your event page in the portal: ${PORTAL}\n\n`:`Payment details are on your event page in the portal: ${PORTAL}\n\n`}Any remaining balance is due before setup on the day of the event.\n\n${sign}`},
@@ -1665,14 +1673,25 @@ function buildEmails(ev, reqs, ps, pays){
   ];
 }
 
-function EmailTemplates({event,payRequests,paySettings,payments,onClose}){
-  const list=buildEmails(event,payRequests||[],paySettings||BLANK_PAY,payments||[]);
+function EmailTemplates({event,owner,payRequests,paySettings,payments,onClose}){
+  const[pw,setPw]=useState(SESSION_PW[event.userId]||"");
+  const[pwBusy,setPwBusy]=useState(false);
+  const username=owner?.email||event.email||"";
+  const list=buildEmails(event,payRequests||[],paySettings||BLANK_PAY,payments||[],{email:username,password:pw});
   const[sel,setSel]=useState(list[0].id);
   const[edits,setEdits]=useState({}); // keep the admin's tweaks per template while the modal is open
   const base=list.find(e=>e.id===sel);
   const cur={...base,...edits[sel]};
   const upd=(k,v)=>setEdits(p=>({...p,[sel]:{...p[sel],[k]:v}}));
-  const mailto=`mailto:${encodeURIComponent(event.email||"")}?subject=${encodeURIComponent(cur.subject)}&body=${encodeURIComponent(cur.body)}`;
+  const newPw=async()=>{
+    if(!confirm(`Set a new temporary password for ${username}? Their current password will stop working.`))return;
+    const p=tempPassword();setPwBusy(true);
+    const{data,error}=await DB.rpc("dj_admin_set_password",{client_id:event.userId,new_password:p});
+    setPwBusy(false);
+    if(error||!data){alert(error?.message||"Couldn't find that client's account.");return;}
+    SESSION_PW[event.userId]=p;setPw(p);
+  };
+  const mailto=`mailto:${encodeURIComponent(event.email||username)}?subject=${encodeURIComponent(cur.subject)}&body=${encodeURIComponent(cur.body)}`;
   return(
     <Modal close={onClose} w={760}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}>
@@ -1682,7 +1701,17 @@ function EmailTemplates({event,payRequests,paySettings,payments,onClose}){
       <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"16px"}}>
         {list.map(e=><div key={e.id} className={`vc ${sel===e.id?"vc-on":"vc-off"}`} onClick={()=>setSel(e.id)}>{e.label}</div>)}
       </div>
-      <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">To</label><input value={event.email||""} readOnly placeholder="No client email on file"/></div>
+      <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">To</label><input value={event.email||username} readOnly placeholder="No client email on file"/></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px",marginBottom:"4px"}}>
+        <div className="fg"><label className="lbl">Portal Username</label><input value={username} readOnly placeholder="No portal account"/></div>
+        <div className="fg"><label className="lbl">Portal Password</label>
+          <div style={{display:"flex",gap:"6px"}}>
+            <input value={pw} onChange={e=>setPw(e.target.value)} placeholder="Type it, or set a new one →" style={{flex:1,minWidth:0}}/>
+            {event.userId&&owner&&!owner.is_admin&&<button className="btn b-out" onClick={newPw} disabled={pwBusy} style={{padding:"6px 10px",fontSize:"11px",whiteSpace:"nowrap"}}>{pwBusy?"Setting…":"New Temp Password"}</button>}
+          </div>
+        </div>
+      </div>
+      <p style={{fontSize:"11px",color:"var(--muted)",marginBottom:"12px"}}>Passwords can't be read back once set. Type the one you gave them, or tap New Temp Password to set a fresh one. Either way it fills into the emails below.</p>
       <div className="fg" style={{marginBottom:"10px"}}><label className="lbl">Subject</label><input value={cur.subject} onChange={e=>upd("subject",e.target.value)}/></div>
       <div className="fg" style={{marginBottom:"14px"}}><label className="lbl">Message</label><textarea value={cur.body} onChange={e=>upd("body",e.target.value)} style={{minHeight:"320px",fontSize:"13px",lineHeight:1.6}}/></div>
       <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
